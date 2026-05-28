@@ -1,0 +1,28 @@
+# Android Studio & IntelliJ
+.idea/
+*.iml
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Secrets & Firebase
+app/google-services.json
+app/src/release/res/values/google_services.xml
+*.keystore
+*.jks
+*.p12
+*.pem
+google-services.json
+
+# Node/System
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Build Output
+*.apk
+*.aar
+*.bundle

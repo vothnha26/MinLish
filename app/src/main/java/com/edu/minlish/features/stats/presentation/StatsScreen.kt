@@ -1,0 +1,477 @@
+package com.edu.minlish.features.stats.presentation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.edu.minlish.core.designsystem.theme.Border
+import com.edu.minlish.features.stats.presentation.components.BarChartData
+import com.edu.minlish.features.stats.presentation.components.SimpleBarChart
+import androidx.compose.ui.tooling.preview.Preview
+
+data class StatsItem(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val value: String)
+data class RatingBreakdownItem(val label: String, val pct: Float, val count: String)
+
+@Composable
+fun StatsScreen(
+    onSettingsClick: () -> Unit = {}
+) {
+    var showFreezeDialog by remember { mutableStateOf(false) }
+    var freezesLeft by remember { mutableStateOf(2) }
+    var freezeEquipped by remember { mutableStateOf(false) }
+
+    val statsList = listOf(
+        StatsItem(Icons.Default.Whatshot, "Current streak", "7 days"),
+        StatsItem(Icons.Default.Book, "Total words", "120"),
+        StatsItem(Icons.Default.Psychology, "Retention rate", "86%")
+    )
+
+    val weeklyData = listOf(
+        BarChartData("Mon", 18),
+        BarChartData("Tue", 24),
+        BarChartData("Wed", 12),
+        BarChartData("Thu", 30),
+        BarChartData("Fri", 22),
+        BarChartData("Sat", 8),
+        BarChartData("Sun", 20)
+    )
+    val todayIndex = 3 // Thursday (Mon=0, Tue=1, Wed=2, Thu=3)
+
+    val monthlyData = listOf(
+        BarChartData("W1", 95),
+        BarChartData("W2", 112),
+        BarChartData("W3", 88),
+        BarChartData("W4", 134)
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Headline with Settings
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Progress",
+                color = Color(0xFF111111),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = Color(0xFF111111),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Level Badge Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color(0xFF111111), shape = RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Current level",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Intermediate B1",
+                    color = Color(0xFF111111),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Next: Upper-intermediate B2",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 12.sp
+                )
+            }
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WorkspacePremium,
+                    contentDescription = "B1 Level",
+                    tint = Color(0xFF111111),
+                    modifier = Modifier.size(32.dp)
+                )
+                Text(
+                    text = "B1",
+                    color = Color(0xFF111111),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        // Stats Mini Cards Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            statsList.forEach { item ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            tint = Color(0xFF6B6B6B),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = item.value,
+                            color = Color(0xFF111111),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = item.label,
+                            color = Color(0xFF6B6B6B),
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // Streak Calendar & Freeze Card
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Streak Calendar",
+                        color = Color(0xFF111111),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "You are on a 7-day streak!",
+                        color = Color(0xFF6B6B6B),
+                        fontSize = 12.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = if (freezeEquipped) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(100.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (freezeEquipped) "Equipped" else "$freezesLeft Freezes left",
+                        color = if (freezeEquipped) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // 7 Days of the Week
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val days = listOf("M", "T", "W", "T", "F", "S", "S")
+                val completedDays = listOf(true, true, true, true, false, false, false) // Mon, Tue, Wed, Thu completed
+
+                days.forEachIndexed { index, day ->
+                    val isDone = completedDays[index]
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(
+                                    color = if (isDone) Color(0xFF111111) else Color(0xFFF7F7F7),
+                                    shape = RoundedCornerShape(100.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isDone) Color(0xFF111111) else Border,
+                                    shape = RoundedCornerShape(100.dp)
+                                )
+                                .clickable { },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDone) {
+                                Icon(
+                                    imageVector = Icons.Default.Whatshot,
+                                    contentDescription = "Done",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = day,
+                                    color = Color(0xFFCCCCCC),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        if (isDone) {
+                            Text(
+                                text = day,
+                                color = Color(0xFF111111),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Streak Freeze Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(
+                        color = if (freezeEquipped) Color(0xFFF5F5F5) else Color(0xFF111111),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clickable(enabled = !freezeEquipped && freezesLeft > 0) {
+                        showFreezeDialog = true
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AcUnit,
+                        contentDescription = "Freeze",
+                        tint = if (freezeEquipped) Color(0xFF888888) else Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = if (freezeEquipped) "Streak Protected Today" else "Equip Streak Freeze",
+                        color = if (freezeEquipped) Color(0xFF888888) else Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        if (showFreezeDialog) {
+            AlertDialog(
+                onDismissRequest = { showFreezeDialog = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        freezeEquipped = true
+                        freezesLeft -= 1
+                        showFreezeDialog = false
+                    }) {
+                        Text("Equip", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showFreezeDialog = false }) {
+                        Text("Cancel", color = Color(0xFF888888))
+                    }
+                },
+                title = {
+                    Text("Equip Streak Freeze", fontWeight = FontWeight.Bold, color = Color(0xFF111111))
+                },
+                text = {
+                    Text("Use 1 Streak Freeze to protect your streak today. If you cannot study, your 7-day streak will not be reset.")
+                },
+                shape = RoundedCornerShape(12.dp),
+                containerColor = Color.White
+            )
+        }
+
+        // Weekly Bar Chart
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "This week",
+                    color = Color(0xFF111111),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${weeklyData.sumOf { it.value }} words",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 13.sp
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                SimpleBarChart(data = weeklyData, activeIndex = todayIndex, maxBarHeight = 110.dp)
+            }
+        }
+
+        // Monthly Bar Chart
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "This month",
+                    color = Color(0xFF111111),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${monthlyData.sumOf { it.value }} words",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 13.sp
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                SimpleBarChart(data = monthlyData, activeIndex = 3, maxBarHeight = 80.dp)
+            }
+        }
+
+        // Accuracy Breakdown Table
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Rating breakdown",
+                color = Color(0xFF111111),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            val breakdown = listOf(
+                RatingBreakdownItem("Easy", 0.42f, "51 words"),
+                RatingBreakdownItem("Good", 0.33f, "40 words"),
+                RatingBreakdownItem("Hard", 0.18f, "22 words"),
+                RatingBreakdownItem("Again", 0.07f, "7 words")
+            )
+
+            breakdown.forEach { item ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = item.label, color = Color(0xFF6B6B6B), fontSize = 12.sp)
+                        Text(text = item.count, color = Color(0xFF6B6B6B), fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    // Progress Bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(100.dp))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(item.pct)
+                                .background(Color(0xFF111111), shape = RoundedCornerShape(100.dp))
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(80.dp)) // Extra space to prevent content from being covered by Bottom Navigation Bar
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun StatsScreenPreview() {
+    StatsScreen()
+}
