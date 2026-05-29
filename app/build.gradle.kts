@@ -76,6 +76,7 @@ dependencies {
     // Firebase & Auth
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
     implementation(libs.google.signin)
     implementation(libs.kotlinx.coroutines.play.services)
 

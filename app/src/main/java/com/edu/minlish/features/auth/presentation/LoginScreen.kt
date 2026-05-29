@@ -42,6 +42,7 @@ fun LoginScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
+    onProfileSetup: () -> Unit, // Thêm mới
     onForgotPassword: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
@@ -61,7 +62,9 @@ fun LoginScreen(
         try {
             val account = task.getResult(ApiException::class.java)
             account?.idToken?.let { idToken ->
-                viewModel.googleLogin(idToken) { onLogin() }
+                viewModel.googleLogin(idToken) { isSetupComplete ->
+                    if (isSetupComplete) onLogin() else onProfileSetup()
+                }
             }
         } catch (e: ApiException) {
             // Handle error
@@ -102,7 +105,9 @@ fun LoginScreen(
             viewModel.login(
                 email = email,
                 password = password,
-                onSuccess = { onLogin() }
+                onNavigate = { isSetupComplete ->
+                    if (isSetupComplete) onLogin() else onProfileSetup()
+                }
             )
         }
     }
@@ -324,6 +329,7 @@ fun LoginScreenPreview() {
         onBack = {},
         onLogin = {},
         onRegister = {},
+        onProfileSetup = {},
         onForgotPassword = {}
     )
 }

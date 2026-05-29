@@ -26,3 +26,9 @@ Thumbs.db
 *.apk
 *.aar
 *.bundle
+
+# Logs and transient files
+firebase-debug.log
+.firebaserc
+firebase.json
+dataconnect/

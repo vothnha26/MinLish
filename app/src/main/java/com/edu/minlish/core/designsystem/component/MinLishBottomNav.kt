@@ -33,7 +33,7 @@ fun MinLishBottomNav(
         TabItem(Screen.Home, Icons.Default.Home, "Home"),
         TabItem(Screen.Library, Icons.Default.Book, "Library"),
         TabItem(Screen.Stats, Icons.Default.TrendingUp, "Stats"),
-        TabItem(Screen.ProfileSetup, Icons.Default.Person, "Profile")
+        TabItem(Screen.PersonalProfile, Icons.Default.Person, "Profile")
     )
 
     Column(

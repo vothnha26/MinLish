@@ -1,0 +1,90 @@
+type User @table {
+  email: String!
+  username: String!
+  authProvider: String!
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type UserProfile @table {
+  user: User!
+  learningGoal: String!
+  currentLevel: String!
+  dailyNewWordsTarget: Int!
+  dailyReviewWordsTarget: Int!
+}
+
+type UserLearningStats @table {
+  user: User!
+  currentStreak: Int!
+  longestStreak: Int!
+  totalWordsLearned: Int!
+  lastActivity: Timestamp
+}
+
+type VocabularySet @table {
+  user: User!
+  name: String!
+  isPublic: Boolean!
+  createdAt: Timestamp!
+  description: String
+  tags: [String]
+}
+
+type VocabularyWord @table {
+  vocabularySet: VocabularySet!
+  word: String!
+  meaning: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  pronunciation: String
+  audioUrl: String
+  imageUrl: String
+  englishDescription: String
+  exampleSentence: String
+  relatedWords: String
+  note: String
+}
+
+type Collocation @table {
+  vocabularyWord: VocabularyWord!
+  phrase: String!
+  meaning: String
+  example: String
+}
+
+type UserWordProgress @table {
+  user: User!
+  vocabularyWord: VocabularyWord!
+  easeFactor: Float!
+  interval: Int!
+  repetitionNumber: Int!
+  isLearned: Boolean!
+  lastReviewed: Timestamp
+  nextReview: Timestamp
+}
+
+type DailyLearningLog @table {
+  user: User!
+  date: Date!
+  wordsLearned: Int!
+  wordsReviewed: Int!
+  timeSpentMinutes: Int!
+}
+
+type FlashcardSet @table {
+  user: User!
+  name: String!
+  isPublic: Boolean!
+  createdAt: Timestamp!
+  description: String
+}
+
+type Notification @table {
+  user: User!
+  title: String!
+  message: String!
+  type: String!
+  isRead: Boolean!
+  createdAt: Timestamp!
+}

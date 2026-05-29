@@ -20,6 +20,7 @@ import com.edu.minlish.features.auth.presentation.LoginScreen
 import com.edu.minlish.features.auth.presentation.RegisterScreen
 import com.edu.minlish.features.auth.presentation.ForgotPasswordScreen
 import com.edu.minlish.features.profilesetup.presentation.ProfileSetupScreen
+import com.edu.minlish.features.profilesetup.presentation.PersonalProfileScreen
 import com.edu.minlish.features.home.presentation.HomeScreen
 import com.edu.minlish.features.library.presentation.LibraryScreen
 import com.edu.minlish.features.library.presentation.CreateWordSetScreen
@@ -40,7 +41,7 @@ fun MinLishApp() {
         Screen.Home.route,
         Screen.Library.route,
         Screen.Stats.route,
-        Screen.ProfileSetup.route
+        Screen.PersonalProfile.route
     )
 
     val shouldShowBottomBar = currentRoute in showBottomBarRoutes
@@ -105,6 +106,11 @@ fun MinLishApp() {
                     onRegister = {
                         navController.navigate(Screen.Register.route)
                     },
+                    onProfileSetup = {
+                        navController.navigate(Screen.ProfileSetup.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    },
                     onForgotPassword = {
                         navController.navigate(Screen.ForgotPassword.route)
                     }
@@ -147,6 +153,20 @@ fun MinLishApp() {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.ProfileSetup.route) { inclusive = true }
                         }
+                    }
+                )
+            }
+
+            // Personal Profile Screen Route
+            composable(Screen.PersonalProfile.route) {
+                PersonalProfileScreen(
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0)
+                        }
+                    },
+                    onEditProfile = {
+                        navController.navigate(Screen.ProfileSetup.route)
                     }
                 )
             }

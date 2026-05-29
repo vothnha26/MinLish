@@ -32,6 +32,9 @@ import com.edu.minlish.core.designsystem.component.MinLishTextField
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileSetupViewModel
+import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileSetupUiState
 
 // Step data models
 data class GoalItem(val id: String, val label: String, val icon: ImageVector)
@@ -39,15 +42,28 @@ data class LevelItem(val code: String, val label: String, val desc: String)
 
 @Composable
 fun ProfileSetupScreen(
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    viewModel: ProfileSetupViewModel = viewModel()
 ) {
     var step by remember { mutableStateOf(1) }
-    var name by remember { mutableStateOf("Nguyen Van A") }
+    var name by remember { mutableStateOf("") }
     var selectedGoal by remember { mutableStateOf("ielts") }
     var selectedLevel by remember { mutableStateOf("B1") }
 
+    val uiState = viewModel.uiState
+
+    LaunchedEffect(uiState) {
+        if (uiState is ProfileSetupUiState.Success) {
+            onDone()
+        }
+    }
+
     val handleBack = {
         if (step > 1) step -= 1
+    }
+
+    val handleDone = {
+        viewModel.saveProfile(name, selectedGoal, selectedLevel)
     }
 
     Column(
@@ -59,6 +75,16 @@ fun ProfileSetupScreen(
     ) {
         // Step Header & Progress Bar
         StepHeader(step = step, onBack = handleBack)
+
+        // Error message if any
+        if (uiState is ProfileSetupUiState.Error) {
+            Text(
+                text = uiState.message,
+                color = Color.Red,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
+        }
 
         // Animated Step Contents
         Box(
@@ -87,7 +113,8 @@ fun ProfileSetupScreen(
                     3 -> Step3Content(
                         selectedLevel = selectedLevel,
                         onLevelSelected = { selectedLevel = it },
-                        onDone = onDone
+                        isLoading = uiState is ProfileSetupUiState.Loading,
+                        onDone = handleDone
                     )
                 }
             }
@@ -327,6 +354,7 @@ private fun GoalBox(
 private fun Step3Content(
     selectedLevel: String,
     onLevelSelected: (String) -> Unit,
+    isLoading: Boolean,
     onDone: () -> Unit
 ) {
     val levelsList = listOf(
@@ -426,8 +454,9 @@ private fun Step3Content(
         }
 
         MinLishButton(
-            text = "Start learning →",
+            text = if (isLoading) "Saving..." else "Start learning →",
             onClick = onDone,
+            enabled = !isLoading,
             modifier = Modifier.padding(bottom = 12.dp)
         )
     }
