@@ -40,9 +40,16 @@ class ProfileViewModel(
 
         viewModelScope.launch {
             uiState = ProfileUiState.Loading
+            
+            // 1. Fetch Full Name from Firestore to ensure it's up to date
+            val fetchedNameResult = authRepository.fetchUserFullName(currentUser.id)
+            val fetchedName = fetchedNameResult.getOrNull()
+            val updatedUser = currentUser.copy(fullName = fetchedName ?: currentUser.fullName)
+
+            // 2. Fetch User Profile
             profileRepository.getProfile(currentUser.id)
                 .onSuccess { profile ->
-                    uiState = ProfileUiState.Success(currentUser, profile)
+                    uiState = ProfileUiState.Success(updatedUser, profile)
                 }
                 .onFailure { e ->
                     uiState = ProfileUiState.Error(e.message ?: "Failed to load profile")

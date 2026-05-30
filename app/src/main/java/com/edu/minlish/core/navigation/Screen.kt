@@ -6,7 +6,10 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Register : Screen("register")
     object ForgotPassword : Screen("forgot_password")
-    object ProfileSetup : Screen("profile_setup")
+    object ProfileSetup : Screen("profile_setup?isEdit={isEdit}") {
+        const val ARG_IS_EDIT = "isEdit"
+        fun createRoute(isEdit: Boolean) = "profile_setup?isEdit=$isEdit"
+    }
     object PersonalProfile : Screen("personal_profile")
     object WordList : Screen("word_list/{setId}") {
         const val ARG_SET_ID = "setId"

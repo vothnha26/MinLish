@@ -99,6 +99,45 @@ class FirebaseAuthRepositoryImpl(
         }
     }
 
+    override suspend fun updateProfile(fullName: String): Result<Unit> {
+        return try {
+            val firebaseUser = firebaseAuth.currentUser ?: return Result.failure(Exception("User not logged in"))
+            
+            // 1. Update display name in Firebase Auth
+            val profileUpdates = UserProfileChangeRequest.Builder()
+                .setDisplayName(fullName)
+                .build()
+            firebaseUser.updateProfile(profileUpdates).await()
+            firebaseUser.reload().await()
+            
+            // 2. Update username in Firestore users collection
+            withTimeoutOrNull(5000) {
+                firestore.collection("users").document(firebaseUser.uid)
+                    .update("username", fullName)
+                    .await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun fetchUserFullName(userId: String): Result<String?> {
+        return try {
+            val snapshot = withTimeoutOrNull(5000) {
+                firestore.collection("users").document(userId).get().await()
+            }
+            if (snapshot != null && snapshot.exists()) {
+                val username = snapshot.getString("username")
+                Result.success(username)
+            } else {
+                Result.success(null)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun logout() {
         firebaseAuth.signOut()
     }

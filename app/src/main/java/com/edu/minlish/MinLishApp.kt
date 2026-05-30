@@ -148,11 +148,25 @@ fun MinLishApp() {
             }
 
             // Profile Setup Screen Route
-            composable(Screen.ProfileSetup.route) {
+            composable(
+                route = Screen.ProfileSetup.route,
+                arguments = listOf(
+                    navArgument(Screen.ProfileSetup.ARG_IS_EDIT) {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val isEdit = backStackEntry.arguments?.getBoolean(Screen.ProfileSetup.ARG_IS_EDIT) ?: false
                 ProfileSetupScreen(
+                    isEdit = isEdit,
                     onDone = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.ProfileSetup.route) { inclusive = true }
+                        if (isEdit) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.ProfileSetup.route) { inclusive = true }
+                            }
                         }
                     }
                 )
@@ -167,7 +181,7 @@ fun MinLishApp() {
                         }
                     },
                     onEditProfile = {
-                        navController.navigate(Screen.ProfileSetup.route)
+                        navController.navigate(Screen.ProfileSetup.createRoute(isEdit = true))
                     }
                 )
             }

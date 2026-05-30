@@ -80,6 +80,12 @@ Thay vì gọi trực tiếp Firebase ở mọi nơi, chúng ta dùng **Reposito
 - **Tự cấu hình khoảng ngắt và đơn vị:** Cho phép người dùng tùy chọn đơn vị ôn tập (`Minutes`, `Hours`, `Days`) và nhập ngưỡng thuộc từ tùy ý trực tiếp từ giao diện Settings.
 - **SM-2 thích ứng linh hoạt:** Thuật toán SM-2 cập nhật lịch ôn tập dựa trên Calendar ứng với đơn vị thời gian và ngưỡng đã chọn.
 
+### 3.5. Phân tách Giao diện Profile Setup & Edit Profile - Mới!
+
+- **Wizard đăng ký mới:** Giữ nguyên quy trình thiết lập từng bước (Wizard 3 bước) cho người dùng đăng ký lần đầu.
+- **Edit Profile độc lập:** Triển khai một màn hình Edit Profile đơn trang (single-page) cao cấp, trực quan dành riêng cho người dùng đã hoàn thành thiết lập. Cho phép cập nhật đồng thời Tên hiển thị (được đồng bộ lên Firebase Auth và Firestore `users`), Study Goal và English Level.
+- **TopAppBar tinh tế:** Hỗ trợ nút Back để quay lại màn hình trước và nút Save ở góc trên bên phải để người dùng thao tác tiện lợi.
+
 ---
 
 ## 4. Nhật ký Sửa lỗi & Tối ưu hóa (Dành cho Dev)
@@ -99,7 +105,7 @@ Thay vì gọi trực tiếp Firebase ở mọi nơi, chúng ta dùng **Reposito
 
 - **Build:** ✅ Thành công (Gradle compilation exit code 0).
 - **Dữ liệu:** ✅ Đã kết nối NoSQL thật (Firestore) & Cấu hình cục bộ (SharedPreferences).
-- **Giao diện:** ✅ Tối ưu trải nghiệm làm mới màn hình và cho phép chỉnh cấu hình ôn tập thủ công hoàn chỉnh.
+- **Giao diện:** ✅ Tách biệt thành công giao diện thiết lập hồ sơ lần đầu và giao diện chỉnh sửa thông tin cá nhân cao cấp.
 
 ---
 

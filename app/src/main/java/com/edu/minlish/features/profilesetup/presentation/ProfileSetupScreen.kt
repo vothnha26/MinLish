@@ -35,6 +35,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileSetupViewModel
 import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileSetupUiState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 
 // Step data models
 data class GoalItem(val id: String, val label: String, val icon: ImageVector)
@@ -42,6 +49,7 @@ data class LevelItem(val code: String, val label: String, val desc: String)
 
 @Composable
 fun ProfileSetupScreen(
+    isEdit: Boolean = false,
     onDone: () -> Unit,
     viewModel: ProfileSetupViewModel = viewModel()
 ) {
@@ -51,6 +59,20 @@ fun ProfileSetupScreen(
     var selectedLevel by remember { mutableStateOf("B1") }
 
     val uiState = viewModel.uiState
+
+    LaunchedEffect(isEdit) {
+        if (isEdit) {
+            viewModel.loadExistingProfile()
+        }
+    }
+
+    LaunchedEffect(viewModel.name, viewModel.selectedGoal, viewModel.selectedLevel) {
+        if (isEdit) {
+            name = viewModel.name
+            selectedGoal = viewModel.selectedGoal
+            selectedLevel = viewModel.selectedLevel
+        }
+    }
 
     LaunchedEffect(uiState) {
         if (uiState is ProfileSetupUiState.Success) {
@@ -66,56 +88,71 @@ fun ProfileSetupScreen(
         viewModel.saveProfile(name, selectedGoal, selectedLevel)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-    ) {
-        // Step Header & Progress Bar
-        StepHeader(step = step, onBack = handleBack)
-
-        // Error message if any
-        if (uiState is ProfileSetupUiState.Error) {
-            Text(
-                text = uiState.message,
-                color = Color.Red,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-            )
-        }
-
-        // Animated Step Contents
-        Box(
+    if (isEdit) {
+        EditProfileContent(
+            name = name,
+            onNameChange = { name = it },
+            selectedGoal = selectedGoal,
+            onGoalSelected = { selectedGoal = it },
+            selectedLevel = selectedLevel,
+            onLevelSelected = { selectedLevel = it },
+            isLoading = uiState is ProfileSetupUiState.Loading,
+            errorMsg = (uiState as? ProfileSetupUiState.Error)?.message,
+            onSave = handleDone,
+            onBack = onDone
+        )
+    } else {
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .background(Color.White)
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
-            AnimatedContent(
-                targetState = step,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
-                },
-                label = "stepContent"
-            ) { targetStep ->
-                when (targetStep) {
-                    1 -> Step1Content(
-                        name = name,
-                        onNameChange = { name = it },
-                        onNext = { step = 2 }
-                    )
-                    2 -> Step2Content(
-                        selectedGoal = selectedGoal,
-                        onGoalSelected = { selectedGoal = it },
-                        onNext = { step = 3 }
-                    )
-                    3 -> Step3Content(
-                        selectedLevel = selectedLevel,
-                        onLevelSelected = { selectedLevel = it },
-                        isLoading = uiState is ProfileSetupUiState.Loading,
-                        onDone = handleDone
-                    )
+            // Step Header & Progress Bar
+            StepHeader(step = step, onBack = handleBack)
+
+            // Error message if any
+            if (uiState is ProfileSetupUiState.Error) {
+                Text(
+                    text = uiState.message,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                )
+            }
+
+            // Animated Step Contents
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                AnimatedContent(
+                    targetState = step,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                    },
+                    label = "stepContent"
+                ) { targetStep ->
+                    when (targetStep) {
+                        1 -> Step1Content(
+                            name = name,
+                            onNameChange = { name = it },
+                            onNext = { step = 2 }
+                        )
+                        2 -> Step2Content(
+                            selectedGoal = selectedGoal,
+                            onGoalSelected = { selectedGoal = it },
+                            onNext = { step = 3 }
+                        )
+                        3 -> Step3Content(
+                            selectedLevel = selectedLevel,
+                            onLevelSelected = { selectedLevel = it },
+                            isLoading = uiState is ProfileSetupUiState.Loading,
+                            onDone = handleDone
+                        )
+                    }
                 }
             }
         }
@@ -459,6 +496,288 @@ private fun Step3Content(
             enabled = !isLoading,
             modifier = Modifier.padding(bottom = 12.dp)
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditProfileContent(
+    name: String,
+    onNameChange: (String) -> Unit,
+    selectedGoal: String,
+    onGoalSelected: (String) -> Unit,
+    selectedLevel: String,
+    onLevelSelected: (String) -> Unit,
+    isLoading: Boolean,
+    errorMsg: String?,
+    onSave: () -> Unit,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = onSave, enabled = !isLoading) {
+                        Text(
+                            text = if (isLoading) "Saving" else "Save",
+                            fontWeight = FontWeight.Bold,
+                            color = if (isLoading) Color.Gray else Primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF9F9F9))
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            if (errorMsg != null) {
+                Text(
+                    text = errorMsg,
+                    color = Color.Red,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+
+            // Avatar Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(Color.White, shape = RoundedCornerShape(100))
+                        .border(1.5.dp, Color(0xFFE5E5E5), shape = RoundedCornerShape(100)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Avatar",
+                        tint = Color(0xFFCCCCCC),
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Edit avatar",
+                    color = Primary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // Section 1: Personal Info
+            Text(
+                text = "PERSONAL INFO",
+                color = Color(0xFF888888),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Full Name",
+                        color = Color(0xFF444444),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    MinLishTextField(
+                        value = name,
+                        onValueChange = onNameChange,
+                        label = "",
+                        placeholder = "Enter your name",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Section 2: Study Goal
+            Text(
+                text = "STUDY GOAL",
+                color = Color(0xFF888888),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            val goalsList = listOf(
+                GoalItem("ielts", "IELTS Prep", Icons.Default.Book),
+                GoalItem("toeic", "TOEIC Prep", Icons.Default.Adjust),
+                GoalItem("daily", "Daily Communication", Icons.Default.Message),
+                GoalItem("business", "Business English", Icons.Default.Work)
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    goalsList.forEach { item ->
+                        val isSelected = selectedGoal == item.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = if (isSelected) Color(0xFFF9F9F9) else Color.White,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) Primary else Color(0xFFE5E5E5),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onGoalSelected(item.id) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) Primary else Color(0xFF6B6B6B),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = item.label,
+                                color = if (isSelected) Primary else Color(0xFF111111),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section 3: English Level
+            Text(
+                text = "ENGLISH LEVEL",
+                color = Color(0xFF888888),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            val levelsList = listOf(
+                LevelItem("A1", "Beginner", "Little or no English knowledge"),
+                LevelItem("A2", "Elementary", "Basic expressions and phrases"),
+                LevelItem("B1", "Intermediate", "Can deal with most situations"),
+                LevelItem("B2", "Upper-intermediate", "Clear, detailed communication"),
+                LevelItem("C1", "Advanced", "Fluent and spontaneous expression"),
+                LevelItem("C2", "Mastery", "Near-native level proficiency")
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    levelsList.forEach { item ->
+                        val isSelected = selectedLevel == item.code
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = if (isSelected) Color(0xFFF9F9F9) else Color.White,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) Primary else Color(0xFFE5E5E5),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onLevelSelected(item.code) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = item.code,
+                                        color = if (isSelected) Primary else Color(0xFF111111),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = item.label,
+                                        color = Color(0xFF111111),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = item.desc,
+                                    color = Color(0xFF6B6B6B),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            MinLishButton(
+                text = if (isLoading) "Saving..." else "Save Changes",
+                onClick = onSave,
+                enabled = !isLoading,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
     }
 }
 
