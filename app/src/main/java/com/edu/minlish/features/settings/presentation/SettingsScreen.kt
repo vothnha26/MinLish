@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -30,6 +31,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     var notificationsEnabled by remember { mutableStateOf(true) }
     var reminderTime by remember { mutableStateOf("09:00 PM") }
     var showTimeDialog by remember { mutableStateOf(false) }
@@ -467,7 +469,14 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
             confirmButton = {
-                TextButton(onClick = { showSaveDialog = false }) {
+                TextButton(onClick = {
+                    showSaveDialog = false
+                    if (notificationsEnabled) {
+                        com.edu.minlish.core.util.NotificationHelper.scheduleDailyReminder(context, reminderTime)
+                    } else {
+                        com.edu.minlish.core.util.NotificationHelper.cancelDailyReminder(context)
+                    }
+                }) {
                     Text("OK", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
                 }
             },

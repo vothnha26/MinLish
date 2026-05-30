@@ -47,4 +47,7 @@ sealed class Screen(val route: String) {
         const val ARG_WORD_ID = "wordId"
         fun createRoute(setId: String, wordId: String) = "edit_word/$setId/$wordId"
     }
+
+    object Notifications : Screen("notifications")
+    object AdminNotifications : Screen("admin_notifications")
 }

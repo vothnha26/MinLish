@@ -8,9 +8,12 @@ import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
 import com.edu.minlish.features.auth.domain.repository.AuthRepository
 import com.edu.minlish.features.learning.data.repository.FirestoreLearningRepositoryImpl
+import com.edu.minlish.features.learning.domain.model.UserReviewLog
 import com.edu.minlish.features.learning.domain.model.UserWordProgress
 import com.edu.minlish.features.learning.domain.repository.LearningRepository
 import com.edu.minlish.features.library.domain.model.VocabularyWord
+import com.edu.minlish.features.profilesetup.data.repository.FirestoreProfileRepositoryImpl
+import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
 import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.math.max
@@ -25,7 +28,8 @@ sealed class FlashcardUiState {
 
 class FlashcardViewModel(
     private val repository: LearningRepository = FirestoreLearningRepositoryImpl(),
-    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val profileRepository: ProfileRepository = FirestoreProfileRepositoryImpl()
 ) : ViewModel() {
 
     var uiState by mutableStateOf<FlashcardUiState>(FlashcardUiState.Loading)
@@ -43,7 +47,24 @@ class FlashcardViewModel(
 
         viewModelScope.launch {
             uiState = FlashcardUiState.Loading
-            repository.getDueWords(currentUser.id, setId, forceAll)
+            
+            val result = if (forceAll) {
+                repository.getDueWords(currentUser.id, setId, forceAll = true)
+            } else {
+                var targetNew = 10
+                var targetReview = 20
+                
+                profileRepository.getProfile(currentUser.id).onSuccess { profile ->
+                    if (profile != null) {
+                        targetNew = profile.dailyNewWordsTarget
+                        targetReview = profile.dailyReviewWordsTarget
+                    }
+                }
+                
+                repository.getDailySessionWords(currentUser.id, targetNew, targetReview, setId)
+            }
+
+            result
                 .onSuccess { dueWords ->
                     if (dueWords.isEmpty()) {
                         uiState = FlashcardUiState.Finished
@@ -70,6 +91,24 @@ class FlashcardViewModel(
         viewModelScope.launch {
             val updatedProgress = calculateSM2(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
             repository.updateProgress(updatedProgress)
+
+            val ratingStr = when (rating) {
+                0 -> "AGAIN"
+                1 -> "HARD"
+                2 -> "GOOD"
+                3 -> "EASY"
+                else -> "GOOD"
+            }
+
+            val log = UserReviewLog(
+                userId = currentUser.id,
+                wordId = word.id,
+                reviewedAt = Date(),
+                rating = ratingStr,
+                intervalBefore = progress?.interval ?: 0,
+                intervalAfter = updatedProgress.interval
+            )
+            repository.logReview(log)
 
             if (currentIndex < currentWords.size - 1) {
                 currentIndex++

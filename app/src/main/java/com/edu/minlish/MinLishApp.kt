@@ -30,6 +30,8 @@ import com.edu.minlish.features.settings.presentation.SettingsScreen
 import com.edu.minlish.features.stats.presentation.StatsScreen
 import com.edu.minlish.features.learning.presentation.FlashcardScreen
 import com.edu.minlish.features.learning.presentation.WordDetailScreen
+import com.edu.minlish.features.notification.presentation.NotificationListScreen
+import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
 
 @Composable
 fun MinLishApp() {
@@ -46,7 +48,7 @@ fun MinLishApp() {
     )
 
     val shouldShowBottomBar = currentRoute in showBottomBarRoutes
-
+    
     Scaffold(
         bottomBar = {
             if (shouldShowBottomBar) {
@@ -182,6 +184,12 @@ fun MinLishApp() {
                     },
                     onEditProfile = {
                         navController.navigate(Screen.ProfileSetup.createRoute(isEdit = true))
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(Screen.Notifications.route)
+                    },
+                    onNavigateToAdminNotifications = {
+                        navController.navigate(Screen.AdminNotifications.route)
                     }
                 )
             }
@@ -353,6 +361,20 @@ fun MinLishApp() {
                     wordId = wordId,
                     onBack = { navController.popBackStack() },
                     onAddSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // User Notifications Route
+            composable(Screen.Notifications.route) {
+                NotificationListScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Admin Notifications Route
+            composable(Screen.AdminNotifications.route) {
+                AdminNotificationScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

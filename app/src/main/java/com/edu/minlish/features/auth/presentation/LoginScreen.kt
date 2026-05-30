@@ -48,10 +48,12 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val gso = remember {
-        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestIdToken(BuildConfig.GOOGLE_CLIENT_ID)
-            .build()
+        if (BuildConfig.GOOGLE_CLIENT_ID.isNotBlank()) {
+            builder.requestIdToken(BuildConfig.GOOGLE_CLIENT_ID)
+        }
+        builder.build()
     }
     val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 

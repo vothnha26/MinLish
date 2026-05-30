@@ -80,6 +80,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.google.signin)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.work)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

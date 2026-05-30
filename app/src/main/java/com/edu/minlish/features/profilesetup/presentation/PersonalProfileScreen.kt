@@ -30,6 +30,8 @@ import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileUiSta
 fun PersonalProfileScreen(
     onLogout: () -> Unit,
     onEditProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToAdminNotifications: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
@@ -149,8 +151,15 @@ fun PersonalProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Default.Notifications,
                             title = "Notifications",
-                            onClick = {}
+                            onClick = onNavigateToNotifications
                         )
+                        if (user.email == "admin@minlish.com" || user.email.contains("admin")) {
+                            ProfileMenuItem(
+                                icon = Icons.Default.AdminPanelSettings,
+                                title = "Admin Console (Notifications)",
+                                onClick = onNavigateToAdminNotifications
+                            )
+                        }
                         ProfileMenuItem(
                             icon = Icons.Default.Security,
                             title = "Security & Privacy",
