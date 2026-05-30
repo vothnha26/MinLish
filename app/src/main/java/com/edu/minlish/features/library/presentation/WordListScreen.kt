@@ -1,0 +1,294 @@
+package com.edu.minlish.features.library.presentation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edu.minlish.core.designsystem.theme.Primary
+import com.edu.minlish.features.library.domain.model.VocabularyWord
+import com.edu.minlish.features.library.presentation.viewmodel.WordListViewModel
+import com.edu.minlish.features.library.presentation.viewmodel.WordListUiState
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WordListScreen(
+    setId: String,
+    onBack: () -> Unit,
+    onWordClick: (String) -> Unit,
+    onAddWord: () -> Unit,
+    onStudyClick: (String) -> Unit,
+    onEditSetClick: (String) -> Unit,
+    viewModel: WordListViewModel = viewModel()
+) {
+    val uiState = viewModel.uiState
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, setId) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.loadWords(setId)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(viewModel.vocabularySet?.title ?: "Loading...", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = Primary)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { onEditSetClick(setId) }) {
+                        Text("Edit", color = Primary, fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(Color(0xFFF0F5FB))
+        ) {
+            when (uiState) {
+                is WordListUiState.Loading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp), color = Primary)
+                }
+                is WordListUiState.Error -> {
+                    Text(text = uiState.message, color = Color.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
+                }
+                is WordListUiState.Success -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            SetHeaderCard(viewModel.vocabularySet, viewModel.masteryPercentage)
+                        }
+                        
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Button(
+                                    onClick = { onStudyClick(setId) },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                                ) {
+                                    Text("Study Now", fontWeight = FontWeight.Bold)
+                                }
+                                
+                                OutlinedButton(
+                                    onClick = onAddWord,
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Primary)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Primary)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add Word", color = Primary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        item {
+                            OutlinedTextField(
+                                value = viewModel.searchQuery,
+                                onValueChange = { viewModel.searchQuery = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                placeholder = { Text("Search words inside set...", color = Color.Gray) },
+                                leadingIcon = { 
+                                    Icon(
+                                        imageVector = Icons.Default.Search, 
+                                        contentDescription = null, 
+                                        tint = Primary
+                                    ) 
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color.White,
+                                    unfocusedContainerColor = Color.White,
+                                    focusedBorderColor = Primary,
+                                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                                ),
+                                singleLine = true
+                            )
+                        }
+
+                        if (uiState.words.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                                    Text("No words in this set yet", color = Color.Gray)
+                                }
+                            }
+                        } else if (viewModel.filteredWords.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                                    Text("No words match your search", color = Color.Gray)
+                                }
+                            }
+                        } else {
+                            items(viewModel.filteredWords) { word ->
+                                WordItemCard(
+                                    word = word,
+                                    progress = viewModel.wordProgresses[word.id],
+                                    onClick = { onWordClick(word.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SetHeaderCard(set: com.edu.minlish.features.library.domain.model.VocabularySet?, progress: Float) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = set?.title ?: "Set Name",
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = Color(0xFF1A237E)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = set?.description ?: "No description available.",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "${set?.wordCount ?: 0} words", fontSize = 14.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.width(16.dp))
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.size(24.dp),
+                    color = Primary,
+                    strokeWidth = 3.dp,
+                    trackColor = Primary.copy(alpha = 0.1f)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "${(progress * 100).toInt()}% mastered",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E7D32)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun WordItemCard(
+    word: VocabularyWord,
+    progress: com.edu.minlish.features.learning.domain.model.UserWordProgress?,
+    onClick: () -> Unit
+) {
+    val masteredThreshold = remember { com.edu.minlish.core.util.AppSettings.masteredThreshold }
+    val isMastered = progress != null && (progress.status == "mastered" || progress.interval > masteredThreshold)
+    val dotColor = when {
+        isMastered -> Color(0xFF4CAF50) // Green for Mastered
+        progress != null -> Primary // Blue/Primary for Reviewing/Learning
+        else -> Color(0xFFBDBDBD) // Grey for Unstudied
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(0.dp), // Stacked look as in img_1.png
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val firstDef = word.definitions.firstOrNull()
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = word.word,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF1A237E)
+                    )
+                    Text(
+                        text = firstDef?.meaningVietnamese ?: "No meaning added",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+                
+                // Status dot
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = dotColor,
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+            }
+            HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+        }
+    }
+}
+
+@Composable
+fun EmptyWordList(onAddWord: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("No words in this set yet", color = Color.Gray)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onAddWord, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
+            Text("Add your first word")
+        }
+    }
+}

@@ -1,14 +1,11 @@
 package com.edu.minlish.features.library.presentation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,21 +14,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
-import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
-import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.features.library.presentation.viewmodel.CreateSetViewModel
+import com.edu.minlish.features.library.presentation.viewmodel.CreateSetUiState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateWordSetScreen(
+    setId: String? = null,
     onBack: () -> Unit,
-    onCreateSuccess: () -> Unit
+    onCreateSuccess: () -> Unit,
+    onDeleteSuccess: (() -> Unit)? = null,
+    viewModel: CreateSetViewModel = viewModel()
 ) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    val availableTags = listOf("IELTS", "TOEIC", "Daily", "Business", "Travel", "Academic", "Idioms")
-    val selectedTags = remember { mutableStateListOf<String>() }
+    val uiState = viewModel.uiState
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(setId) {
+        if (setId != null) {
+            viewModel.initEditMode(setId)
+        }
+    }
+
+    LaunchedEffect(uiState) {
+        if (uiState is CreateSetUiState.Success) {
+            onCreateSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -57,108 +69,113 @@ fun CreateWordSetScreen(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Create Word Set",
+                text = if (setId != null) "Edit Word Set" else "Create Word Set",
                 color = Color(0xFF111111),
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
+            if (setId != null) {
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Delete Set",
+                        tint = Color.Red
+                    )
+                }
+            }
         }
 
-        // Form Area
         Column(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             MinLishTextField(
-                value = title,
-                onValueChange = { title = it },
+                value = viewModel.title,
+                onValueChange = { viewModel.title = it },
                 label = "Set Title",
-                placeholder = "e.g. IELTS Academic Level 2"
+                placeholder = "e.g. Academic Vocabulary"
             )
 
             MinLishTextField(
-                value = description,
-                onValueChange = { description = it },
+                value = viewModel.description,
+                onValueChange = { viewModel.description = it },
                 label = "Description",
-                placeholder = "e.g. Essential words for academic writing task 1 & 2"
+                placeholder = "e.g. Important words for IELTS Writing Task 2"
             )
 
-            // Tags Section
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // Dynamic Category Selection
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "SELECT TAGS",
+                    text = "Category",
                     color = Color(0xFF6B6B6B),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
-
-                // Grid layout for tag chips using FlowRow or nested Rows
-                // For Compose compatibility and simple alignment, we can layout them in chunks
-                val chunkedTags = availableTags.chunked(3)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    chunkedTags.forEach { rowTags ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rowTags.forEach { tag ->
-                                val isSelected = selectedTags.contains(tag)
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            color = if (isSelected) Color(0xFF111111) else Color.White,
-                                            shape = RoundedCornerShape(100.dp)
-                                        )
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (isSelected) Color.Transparent else Border,
-                                            shape = RoundedCornerShape(100.dp)
-                                        )
-                                        .clickable {
-                                            if (isSelected) {
-                                                selectedTags.remove(tag)
-                                            } else {
-                                                selectedTags.add(tag)
-                                            }
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = tag,
-                                        color = if (isSelected) Color.White else Color(0xFF6B6B6B),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("IELTS", "TOEIC", "General").forEach { cat ->
+                        FilterChip(
+                            selected = viewModel.category == cat,
+                            onClick = { viewModel.category = cat },
+                            label = { Text(cat) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Primary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
                     }
                 }
+            }
+
+            if (uiState is CreateSetUiState.Error) {
+                Text(text = uiState.message, color = Color.Red, fontSize = 12.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             MinLishButton(
-                text = "Create Word Set",
-                onClick = {
-                    if (title.isNotEmpty()) {
-                        onCreateSuccess()
-                    }
+                text = if (uiState is CreateSetUiState.Loading) {
+                    if (setId != null) "Saving..." else "Creating..."
+                } else {
+                    if (setId != null) "Save Changes" else "Create Set"
                 },
-                containerColor = if (title.isNotEmpty()) Primary else Color(0xFFE5E5E5),
-                contentColor = if (title.isNotEmpty()) Color.White else Color(0xFFAAAAAA),
+                onClick = { viewModel.saveSet() },
+                enabled = viewModel.title.isNotBlank() && uiState !is CreateSetUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun CreateWordSetScreenPreview() {
-    CreateWordSetScreen(onBack = {}, onCreateSuccess = {})
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Word Set", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete this word set? All vocabulary words in this set will be deleted permanently.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteSet(onSuccess = {
+                            if (onDeleteSuccess != null) {
+                                onDeleteSuccess()
+                            } else {
+                                onBack()
+                            }
+                        })
+                    }
+                ) {
+                    Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = Color.White
+        )
+    }
 }

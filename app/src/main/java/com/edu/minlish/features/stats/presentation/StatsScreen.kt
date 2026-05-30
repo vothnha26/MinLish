@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -30,45 +31,70 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.tooling.preview.Preview
 import com.edu.minlish.core.designsystem.theme.Border
+import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.stats.presentation.components.BarChartData
 import com.edu.minlish.features.stats.presentation.components.SimpleBarChart
-import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.features.stats.presentation.viewmodel.StatsViewModel
+import com.edu.minlish.features.stats.presentation.viewmodel.StatsUiState
 
 data class StatsItem(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val value: String)
 data class RatingBreakdownItem(val label: String, val pct: Float, val count: String)
 
 @Composable
 fun StatsScreen(
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    viewModel: StatsViewModel = viewModel()
 ) {
+    val uiState = viewModel.uiState
     var showFreezeDialog by remember { mutableStateOf(false) }
     var freezesLeft by remember { mutableStateOf(2) }
     var freezeEquipped by remember { mutableStateOf(false) }
 
-    val statsList = listOf(
-        StatsItem(Icons.Default.Whatshot, "Current streak", "7 days"),
-        StatsItem(Icons.Default.Book, "Total words", "120"),
-        StatsItem(Icons.Default.Psychology, "Retention rate", "86%")
-    )
+    when (uiState) {
+        is StatsUiState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Primary)
+            }
+        }
+        is StatsUiState.Error -> {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+                Text(text = uiState.message, color = Color.Red)
+            }
+        }
+        is StatsUiState.Success -> {
+            val statsList = listOf(
+                StatsItem(Icons.Default.Whatshot, "Current streak", "${uiState.currentStreak} days"),
+                StatsItem(Icons.Default.Book, "Total words", "${uiState.totalWords}"),
+                StatsItem(Icons.Default.Psychology, "Retention rate", "${uiState.retentionRate.toInt()}%")
+            )
 
-    val weeklyData = listOf(
-        BarChartData("Mon", 18),
-        BarChartData("Tue", 24),
-        BarChartData("Wed", 12),
-        BarChartData("Thu", 30),
-        BarChartData("Fri", 22),
-        BarChartData("Sat", 8),
-        BarChartData("Sun", 20)
-    )
-    val todayIndex = 3 // Thursday (Mon=0, Tue=1, Wed=2, Thu=3)
+            val weeklyData = listOf(
+                BarChartData("Mon", 18), BarChartData("Tue", 24), BarChartData("Wed", 12),
+                BarChartData("Thu", 30), BarChartData("Fri", 22), BarChartData("Sat", 8), BarChartData("Sun", 20)
+            )
+            val todayIndex = 3 // Thursday
 
-    val monthlyData = listOf(
-        BarChartData("W1", 95),
-        BarChartData("W2", 112),
-        BarChartData("W3", 88),
-        BarChartData("W4", 134)
-    )
+            val monthlyData = listOf(
+                BarChartData("W1", 95), BarChartData("W2", 112), BarChartData("W3", 88), BarChartData("W4", 134)
+            )
+
+            val totalRated = uiState.easyCount + uiState.goodCount + uiState.hardCount + uiState.againCount
+            val breakdown = if (totalRated > 0) {
+                listOf(
+                    RatingBreakdownItem("Easy", uiState.easyCount.toFloat() / totalRated, "${uiState.easyCount} words"),
+                    RatingBreakdownItem("Good", uiState.goodCount.toFloat() / totalRated, "${uiState.goodCount} words"),
+                    RatingBreakdownItem("Hard", uiState.hardCount.toFloat() / totalRated, "${uiState.hardCount} words"),
+                    RatingBreakdownItem("Again", uiState.againCount.toFloat() / totalRated, "${uiState.againCount} words")
+                )
+            } else {
+                listOf(
+                    RatingBreakdownItem("Easy", 0f, "0 words"), RatingBreakdownItem("Good", 0f, "0 words"),
+                    RatingBreakdownItem("Hard", 0f, "0 words"), RatingBreakdownItem("Again", 0f, "0 words")
+                )
+            }
 
     Column(
         modifier = Modifier
@@ -431,13 +457,6 @@ fun StatsScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            val breakdown = listOf(
-                RatingBreakdownItem("Easy", 0.42f, "51 words"),
-                RatingBreakdownItem("Good", 0.33f, "40 words"),
-                RatingBreakdownItem("Hard", 0.18f, "22 words"),
-                RatingBreakdownItem("Again", 0.07f, "7 words")
-            )
-
             breakdown.forEach { item ->
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -467,6 +486,8 @@ fun StatsScreen(
         }
         
         Spacer(modifier = Modifier.height(80.dp)) // Extra space to prevent content from being covered by Bottom Navigation Bar
+    }
+        }
     }
 }
 
