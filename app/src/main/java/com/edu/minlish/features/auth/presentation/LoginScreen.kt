@@ -42,15 +42,18 @@ fun LoginScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
+    onProfileSetup: () -> Unit, // Thêm mới
     onForgotPassword: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val gso = remember {
-        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        val builder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestIdToken(BuildConfig.GOOGLE_CLIENT_ID)
-            .build()
+        if (BuildConfig.GOOGLE_CLIENT_ID.isNotBlank()) {
+            builder.requestIdToken(BuildConfig.GOOGLE_CLIENT_ID)
+        }
+        builder.build()
     }
     val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 
@@ -61,7 +64,9 @@ fun LoginScreen(
         try {
             val account = task.getResult(ApiException::class.java)
             account?.idToken?.let { idToken ->
-                viewModel.googleLogin(idToken) { onLogin() }
+                viewModel.googleLogin(idToken) { isSetupComplete ->
+                    if (isSetupComplete) onLogin() else onProfileSetup()
+                }
             }
         } catch (e: ApiException) {
             // Handle error
@@ -102,7 +107,9 @@ fun LoginScreen(
             viewModel.login(
                 email = email,
                 password = password,
-                onSuccess = { onLogin() }
+                onNavigate = { isSetupComplete ->
+                    if (isSetupComplete) onLogin() else onProfileSetup()
+                }
             )
         }
     }
@@ -324,6 +331,7 @@ fun LoginScreenPreview() {
         onBack = {},
         onLogin = {},
         onRegister = {},
+        onProfileSetup = {},
         onForgotPassword = {}
     )
 }

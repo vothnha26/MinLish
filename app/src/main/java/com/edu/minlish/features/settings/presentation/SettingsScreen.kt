@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -29,6 +31,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     var notificationsEnabled by remember { mutableStateOf(true) }
     var reminderTime by remember { mutableStateOf("09:00 PM") }
     var showTimeDialog by remember { mutableStateOf(false) }
@@ -216,6 +219,179 @@ fun SettingsScreen(
                 }
             }
 
+            // Learning Settings Group
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "LEARNING SETTINGS",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                ) {
+                    var selectedUnit by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.intervalUnit) }
+                    var thresholdVal by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.masteredThreshold.toString()) }
+                    var showUnitDialog by remember { mutableStateOf(false) }
+
+                    // Row: Interval Unit Selector
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showUnitDialog = true }
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = "Spaced Repetition Unit",
+                                tint = Color(0xFF6B6B6B),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Spaced Repetition Unit",
+                                    color = Color(0xFF111111),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Current: $selectedUnit",
+                                    color = Color(0xFF6B6B6B),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = when (selectedUnit) {
+                                "MINUTES" -> "Minutes"
+                                "HOURS" -> "Hours"
+                                else -> "Days"
+                            },
+                            color = Primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color(0xFFF0F0F0))
+                    )
+
+                    // Manual Threshold Setup Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Mastered Threshold",
+                                color = Color(0xFF111111),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Interval greater than this (${selectedUnit.lowercase()}) is Mastered",
+                                color = Color(0xFF6B6B6B),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = thresholdVal,
+                            onValueChange = { newVal ->
+                                val cleanVal = newVal.filter { it.isDigit() }
+                                thresholdVal = cleanVal
+                                cleanVal.toIntOrNull()?.let {
+                                    com.edu.minlish.core.util.AppSettings.masteredThreshold = it
+                                }
+                            },
+                            modifier = Modifier.width(80.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedBorderColor = Primary,
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            ),
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111111)
+                            )
+                        )
+                    }
+
+                    // Dialog to select unit
+                    if (showUnitDialog) {
+                        val units = listOf("MINUTES", "HOURS", "DAYS")
+                        AlertDialog(
+                            onDismissRequest = { showUnitDialog = false },
+                            confirmButton = {},
+                            title = {
+                                Text("Select Interval Unit", fontWeight = FontWeight.Bold, color = Color(0xFF111111))
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    units.forEach { unit ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    selectedUnit = unit
+                                                    com.edu.minlish.core.util.AppSettings.intervalUnit = unit
+                                                    showUnitDialog = false
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = when (unit) {
+                                                    "MINUTES" -> "Minutes (Testing)"
+                                                    "HOURS" -> "Hours"
+                                                    else -> "Days (Standard)"
+                                                },
+                                                color = Color(0xFF111111),
+                                                fontSize = 15.sp
+                                            )
+                                            if (selectedUnit == unit) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(10.dp)
+                                                        .background(Color(0xFF111111), shape = RoundedCornerShape(100))
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            containerColor = Color.White
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Action Buttons
@@ -293,7 +469,14 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
             confirmButton = {
-                TextButton(onClick = { showSaveDialog = false }) {
+                TextButton(onClick = {
+                    showSaveDialog = false
+                    if (notificationsEnabled) {
+                        com.edu.minlish.core.util.NotificationHelper.scheduleDailyReminder(context, reminderTime)
+                    } else {
+                        com.edu.minlish.core.util.NotificationHelper.cancelDailyReminder(context)
+                    }
+                }) {
                     Text("OK", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
                 }
             },

@@ -9,10 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,286 +20,215 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
-import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.features.learning.presentation.viewmodel.WordDetailViewModel
+import com.edu.minlish.features.learning.presentation.viewmodel.WordDetailUiState
+import androidx.lifecycle.viewmodel.compose.viewModel
 
-data class DetailSection(val label: String, val content: String)
+import androidx.compose.runtime.DisposableEffect
+import com.edu.minlish.core.util.AudioPlayer
 
 @Composable
 fun WordDetailScreen(
     wordId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onEditClick: (String, String) -> Unit,
+    viewModel: WordDetailViewModel = viewModel()
 ) {
-    var note by remember { mutableStateOf("Used in academic writing to describe temporary phenomena.") }
-    var isEditing by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
+    val uiState = viewModel.uiState
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Represent detail sections
-    val sections = listOf(
-        DetailSection(
-            "Meaning",
-            "Lasting for a very short time; transitory. Often used to describe beauty or moments that pass quickly."
-        ),
-        DetailSection(
-            "Example sentence",
-            "\"The ephemeral nature of social media trends makes it difficult to build a lasting brand identity.\""
-        ),
-        DetailSection(
-            "Collocation",
-            "ephemeral beauty · ephemeral moment · ephemeral pleasure · ephemeral nature · ephemeral experience"
-        ),
-        DetailSection(
-            "Related words",
-            "transient · fleeting · momentary · short-lived · temporary · brief · passing"
-        )
-    )
+    LaunchedEffect(wordId) {
+        viewModel.loadWord(wordId)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { AudioPlayer.release() }
+    }
+
+    Scaffold(
+        containerColor = Color.White
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when (uiState) {
+                is WordDetailUiState.Loading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
+                }
+                is WordDetailUiState.Error -> {
+                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = uiState.message, color = Color.Red)
+                        Button(onClick = onBack) { Text("Back") }
+                    }
+                }
+                is WordDetailUiState.Success -> {
+                    val word = uiState.word
+                    WordDetailContent(
+                        word = word,
+                        onBack = onBack,
+                        onEditClick = { onEditClick(word.vocabularySetId, word.id) },
+                        onDeleteClick = { showDeleteDialog = true }
+                    )
+
+                    if (showDeleteDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showDeleteDialog = false },
+                            title = { Text("Delete Vocabulary", fontWeight = FontWeight.Bold) },
+                            text = { Text("Are you sure you want to delete '${word.word}'? This action cannot be undone.") },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showDeleteDialog = false
+                                        viewModel.deleteWord(word.id, onBack)
+                                    }
+                                ) {
+                                    Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDeleteDialog = false }) {
+                                    Text("Cancel", color = Color.Gray)
+                                }
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            containerColor = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WordDetailContent(
+    word: com.edu.minlish.features.library.domain.model.VocabularyWord,
+    onBack: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    val note by remember { mutableStateOf(word.personalNote) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
-            .statusBarsPadding()
-            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
         // Header
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.Default.ChevronLeft,
-                    contentDescription = "Back",
-                    tint = Primary,
-                    modifier = Modifier.size(28.dp)
-                )
+            IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = Primary, modifier = Modifier.size(28.dp)) }
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = onDeleteClick) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete Word", tint = Color.Red)
             }
+            IconButton(onClick = onEditClick) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit Word", tint = Color.Gray)
+            }
+        }
 
-            Text(
-                text = "IELTS · C1",
-                color = Color(0xFF6B6B6B),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { showExportDialog = true }) {
+        // Word Display
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+            Text(text = word.word, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF111111))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text = word.pronunciation, color = Primary, fontSize = 18.sp)
+                IconButton(
+                    onClick = { AudioPlayer.play(word.audioUrl, fallbackWord = word.word) }
+                ) {
                     Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Export Word Set",
-                        tint = Color(0xFF6B6B6B)
-                    )
-                }
-                IconButton(onClick = { isEditing = !isEditing }) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Note",
-                        tint = if (isEditing) Primary else Color(0xFFCCCCCC)
+                        imageVector = Icons.Default.VolumeUp,
+                        contentDescription = "Play",
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
 
-        // Scrollable content area
-        Column(
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Meanings List
+        word.definitions.forEachIndexed { index, def ->
+            MeaningDetailCard(index + 1, def)
+        }
+
+        // Collocations & Note
+        if (word.collocations.isNotBlank()) {
+            SectionHeader("COLLOCATIONS")
+            Text(text = word.collocations, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = Color(0xFF444444), fontSize = 15.sp)
+        }
+
+        SectionHeader("MY NOTE")
+        Box(
             modifier = Modifier
-                .weight(1f)
+                .padding(horizontal = 24.dp, vertical = 8.dp)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .background(Color(0xFFF7F7F7), RoundedCornerShape(12.dp))
+                .padding(16.dp)
         ) {
-            // Word main display
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = wordId, // Dynamically use the passed wordId
-                    color = Color(0xFF111111),
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = 40.sp
-                )
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Text(
-                        text = "/ɪˈfem.ər.əl/",
-                        color = Color(0xFF6B6B6B),
-                        fontSize = 16.sp
-                    )
-                    IconButton(
-                        onClick = { /* TODO: Play audio pronunciation */ },
-                        modifier = Modifier
-                            .size(28.dp)
-                            .border(1.dp, Border, shape = RoundedCornerShape(100))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.VolumeUp,
-                            contentDescription = "Pronounce",
-                            tint = Color(0xFF6B6B6B),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    WordBadge(text = "adjective")
-                    WordBadge(text = "formal")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sections list
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-            ) {
-                sections.forEachIndexed { index, section ->
-                    if (index > 0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Color(0xFFF0F0F0))
-                        )
-                    }
-                    
-                    Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                        Text(
-                            text = section.label.uppercase(),
-                            color = Color(0xFF6B6B6B),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = section.content,
-                            color = Color(0xFF111111),
-                            fontSize = 15.sp,
-                            lineHeight = 24.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Personal note area
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Border, shape = RoundedCornerShape(0.dp)) // border top
-                    .padding(20.dp)
-            ) {
-                Text(
-                    text = "MY NOTE",
-                    color = Color(0xFF6B6B6B),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                if (isEditing) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFF7F7F7), shape = RoundedCornerShape(8.dp))
-                            .border(1.dp, Border, shape = RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                    ) {
-                        BasicTextField(
-                            value = note,
-                            onValueChange = { note = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(72.dp),
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF111111), lineHeight = 20.sp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { isEditing = false },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(text = "Save note", color = Color.White, fontSize = 14.sp)
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFF7F7F7), shape = RoundedCornerShape(8.dp))
-                            .clickable { isEditing = true }
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = if (note.isEmpty()) "Tap to add a note..." else note,
-                            color = if (note.isEmpty()) Color(0xFFCCCCCC) else Color(0xFF6B6B6B),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            }
+            Text(text = if (note.isBlank()) "No personal notes yet." else note, color = Color(0xFF6B6B6B), fontSize = 14.sp)
         }
-
-        if (showExportDialog) {
-            AlertDialog(
-                onDismissRequest = { showExportDialog = false },
-                confirmButton = {
-                    TextButton(onClick = { showExportDialog = false }) {
-                        Text("OK", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
-                    }
-                },
-                title = {
-                    Text("Export Word", fontWeight = FontWeight.Bold, color = Color(0xFF111111))
-                },
-                text = {
-                    Text("Word '$wordId' has been exported to CSV format successfully!")
-                },
-                shape = RoundedCornerShape(12.dp),
-                containerColor = Color.White
-            )
-        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-private fun WordBadge(text: String) {
-    Box(
-        modifier = Modifier
-            .border(1.dp, Border, shape = RoundedCornerShape(100.dp))
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = text,
-            color = Color(0xFF6B6B6B),
-            fontSize = 12.sp
-        )
+fun MeaningDetailCard(number: Int, def: com.edu.minlish.features.library.domain.model.WordDefinition) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "MEANING #$number", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Primary, letterSpacing = 1.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(modifier = Modifier.background(Primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                Text(text = def.pos.lowercase(), fontSize = 10.sp, color = Primary, fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        Text(text = def.meaningVietnamese, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF111111), modifier = Modifier.padding(top = 8.dp))
+        
+        if (def.definitionEnglish.isNotBlank()) {
+            Text(text = def.definitionEnglish, fontSize = 15.sp, color = Color(0xFF6B6B6B), modifier = Modifier.padding(top = 4.dp))
+        }
+
+        if (def.exampleSentence.isNotBlank()) {
+            Card(
+                modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = "\"${def.exampleSentence}\"",
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 14.sp,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = Color(0xFF444444)
+                )
+            }
+        }
+        
+        if (def.synonyms.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Synonyms: ${def.synonyms.joinToString(", ")}", fontSize = 13.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+        }
+        
+        if (def.antonyms.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "Antonyms: ${def.antonyms.joinToString(", ")}", fontSize = 13.sp, color = Color(0xFFC62828), fontWeight = FontWeight.Medium)
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFEEEEEE)))
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun WordDetailScreenPreview() {
-    WordDetailScreen(
-        wordId = "Ephemeral",
-        onBack = {}
+fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.Gray,
+        letterSpacing = 1.sp
     )
 }

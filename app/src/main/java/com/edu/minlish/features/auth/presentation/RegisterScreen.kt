@@ -72,7 +72,7 @@ fun RegisterScreen(
             email = email,
             password = password,
             fullName = name,
-            onSuccess = { onRegister() }
+            onNavigate = { _ -> onRegister() } // Đăng ký mới thì luôn bắt setup
         )
     }
 

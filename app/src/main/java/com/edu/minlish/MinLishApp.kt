@@ -20,14 +20,18 @@ import com.edu.minlish.features.auth.presentation.LoginScreen
 import com.edu.minlish.features.auth.presentation.RegisterScreen
 import com.edu.minlish.features.auth.presentation.ForgotPasswordScreen
 import com.edu.minlish.features.profilesetup.presentation.ProfileSetupScreen
+import com.edu.minlish.features.profilesetup.presentation.PersonalProfileScreen
 import com.edu.minlish.features.home.presentation.HomeScreen
 import com.edu.minlish.features.library.presentation.LibraryScreen
 import com.edu.minlish.features.library.presentation.CreateWordSetScreen
 import com.edu.minlish.features.library.presentation.AddWordScreen
+import com.edu.minlish.features.library.presentation.WordListScreen
 import com.edu.minlish.features.settings.presentation.SettingsScreen
 import com.edu.minlish.features.stats.presentation.StatsScreen
 import com.edu.minlish.features.learning.presentation.FlashcardScreen
 import com.edu.minlish.features.learning.presentation.WordDetailScreen
+import com.edu.minlish.features.notification.presentation.NotificationListScreen
+import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
 
 @Composable
 fun MinLishApp() {
@@ -40,11 +44,11 @@ fun MinLishApp() {
         Screen.Home.route,
         Screen.Library.route,
         Screen.Stats.route,
-        Screen.ProfileSetup.route
+        Screen.PersonalProfile.route
     )
 
     val shouldShowBottomBar = currentRoute in showBottomBarRoutes
-
+    
     Scaffold(
         bottomBar = {
             if (shouldShowBottomBar) {
@@ -105,6 +109,11 @@ fun MinLishApp() {
                     onRegister = {
                         navController.navigate(Screen.Register.route)
                     },
+                    onProfileSetup = {
+                        navController.navigate(Screen.ProfileSetup.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    },
                     onForgotPassword = {
                         navController.navigate(Screen.ForgotPassword.route)
                     }
@@ -141,12 +150,46 @@ fun MinLishApp() {
             }
 
             // Profile Setup Screen Route
-            composable(Screen.ProfileSetup.route) {
+            composable(
+                route = Screen.ProfileSetup.route,
+                arguments = listOf(
+                    navArgument(Screen.ProfileSetup.ARG_IS_EDIT) {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                )
+            ) { backStackEntry ->
+                val isEdit = backStackEntry.arguments?.getBoolean(Screen.ProfileSetup.ARG_IS_EDIT) ?: false
                 ProfileSetupScreen(
+                    isEdit = isEdit,
                     onDone = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.ProfileSetup.route) { inclusive = true }
+                        if (isEdit) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.ProfileSetup.route) { inclusive = true }
+                            }
                         }
+                    }
+                )
+            }
+
+            // Personal Profile Screen Route
+            composable(Screen.PersonalProfile.route) {
+                PersonalProfileScreen(
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0)
+                        }
+                    },
+                    onEditProfile = {
+                        navController.navigate(Screen.ProfileSetup.createRoute(isEdit = true))
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(Screen.Notifications.route)
+                    },
+                    onNavigateToAdminNotifications = {
+                        navController.navigate(Screen.AdminNotifications.route)
                     }
                 )
             }
@@ -166,8 +209,8 @@ fun MinLishApp() {
             // Library Screen Route
             composable(Screen.Library.route) {
                 LibraryScreen(
-                    onWordSetClick = { _ ->
-                        navController.navigate(Screen.WordDetail.createRoute("IELTS Academic"))
+                    onWordSetClick = { setId ->
+                        navController.navigate(Screen.WordList.createRoute(setId))
                     },
                     onCreateWordSetClick = {
                         navController.navigate(Screen.CreateWordSet.route)
@@ -178,11 +221,57 @@ fun MinLishApp() {
                 )
             }
 
+            // Word List Screen Route
+            composable(
+                route = Screen.WordList.route,
+                arguments = listOf(
+                    navArgument(Screen.WordList.ARG_SET_ID) { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.WordList.ARG_SET_ID) ?: ""
+                WordListScreen(
+                    setId = setId,
+                    onBack = { navController.popBackStack() },
+                    onWordClick = { wordId ->
+                        navController.navigate(Screen.WordDetail.createRoute(wordId))
+                    },
+                    onAddWord = {
+                        navController.navigate(Screen.AddWord.createRoute(setId))
+                    },
+                    onStudyClick = { targetSetId ->
+                        navController.navigate(Screen.Flashcard.createRoute(targetSetId))
+                    },
+                    onEditSetClick = { targetSetId ->
+                        navController.navigate(Screen.EditWordSet.createRoute(targetSetId))
+                    }
+                )
+            }
+
             // Create Word Set Route
             composable(Screen.CreateWordSet.route) {
                 CreateWordSetScreen(
                     onBack = { navController.popBackStack() },
                     onCreateSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // Edit Word Set Route
+            composable(
+                route = Screen.EditWordSet.route,
+                arguments = listOf(
+                    navArgument(Screen.EditWordSet.ARG_SET_ID) { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.EditWordSet.ARG_SET_ID) ?: ""
+                CreateWordSetScreen(
+                    setId = setId,
+                    onBack = { navController.popBackStack() },
+                    onCreateSuccess = {
+                        navController.popBackStack(Screen.Library.route, false)
+                    },
+                    onDeleteSuccess = {
+                        navController.popBackStack(Screen.Library.route, false)
+                    }
                 )
             }
 
@@ -223,8 +312,19 @@ fun MinLishApp() {
             }
 
             // Flashcard Screen Route
-            composable(Screen.Flashcard.route) {
+            composable(
+                route = Screen.Flashcard.route,
+                arguments = listOf(
+                    navArgument(Screen.Flashcard.ARG_SET_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.Flashcard.ARG_SET_ID)
                 FlashcardScreen(
+                    setId = setId,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -239,6 +339,41 @@ fun MinLishApp() {
                 val wordId = backStackEntry.arguments?.getString(Screen.WordDetail.ARG_WORD_ID) ?: ""
                 WordDetailScreen(
                     wordId = wordId,
+                    onBack = { navController.popBackStack() },
+                    onEditClick = { setId, targetWordId ->
+                        navController.navigate(Screen.EditWord.createRoute(setId, targetWordId))
+                    }
+                )
+            }
+
+            // Edit Word Route
+            composable(
+                route = Screen.EditWord.route,
+                arguments = listOf(
+                    navArgument(Screen.EditWord.ARG_SET_ID) { type = NavType.StringType },
+                    navArgument(Screen.EditWord.ARG_WORD_ID) { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.EditWord.ARG_SET_ID) ?: ""
+                val wordId = backStackEntry.arguments?.getString(Screen.EditWord.ARG_WORD_ID) ?: ""
+                AddWordScreen(
+                    setId = setId,
+                    wordId = wordId,
+                    onBack = { navController.popBackStack() },
+                    onAddSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // User Notifications Route
+            composable(Screen.Notifications.route) {
+                NotificationListScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Admin Notifications Route
+            composable(Screen.AdminNotifications.route) {
+                AdminNotificationScreen(
                     onBack = { navController.popBackStack() }
                 )
             }
