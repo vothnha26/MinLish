@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,11 +35,13 @@ import com.edu.minlish.features.library.presentation.viewmodel.LibraryUiState
 fun LibraryScreen(
     onWordSetClick: (String) -> Unit,
     onCreateWordSetClick: () -> Unit,
+    onAICreateWordSetClick: () -> Unit,
     onAddWordClick: (String) -> Unit,
     viewModel: LibraryViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
     var showCategoryManager by remember { mutableStateOf(false) }
+    var showCreateOptionsSheet by remember { mutableStateOf(false) }
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
@@ -81,7 +84,7 @@ fun LibraryScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onCreateWordSetClick,
+                onClick = { showCreateOptionsSheet = true },
                 containerColor = Primary,
                 contentColor = Color.White,
                 shape = androidx.compose.foundation.shape.CircleShape
@@ -209,6 +212,106 @@ fun LibraryScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+            if (showCreateOptionsSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showCreateOptionsSheet = false },
+                    sheetState = rememberModalBottomSheetState(),
+                    containerColor = Color.White
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .navigationBarsPadding(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Tạo Bộ Từ Vựng Mới",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = Color(0xFF111111)
+                        )
+                        
+                        // Option 1: AI
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showCreateOptionsSheet = false
+                                    onAICreateWordSetClick()
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.08f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = Primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = "Tạo tự động bằng AI",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Primary
+                                    )
+                                    Text(
+                                        text = "Nhập chủ đề yêu cầu, AI sinh tiêu đề và định nghĩa tự động.",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Option 2: Manual
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showCreateOptionsSheet = false
+                                    onCreateWordSetClick()
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Book,
+                                    contentDescription = null,
+                                    tint = Color(0xFF475569),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = "Tự nhập thủ công",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Color(0xFF1E293B)
+                                    )
+                                    Text(
+                                        text = "Tự điền tiêu đề, mô tả và thêm các từ vựng theo ý muốn.",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }

@@ -34,6 +34,22 @@ class FirestoreVocabularyRepositoryImpl(
         }
     }
 
+    override suspend fun createSetAndGetId(set: VocabularySet): Result<String> {
+        return try {
+            println("DEBUG: Preparing to create set and get ID: ${set.title} for user: ${set.creatorId}")
+            val docRef = withTimeout(10000) {
+                firestore.collection("vocabulary_sets")
+                    .add(set)
+                    .await()
+            }
+            println("DEBUG: Set created with ID: ${docRef.id}")
+            Result.success(docRef.id)
+        } catch (e: Exception) {
+            println("DEBUG: Error creating set and getting ID: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
     override suspend fun getUserSets(userId: String): Result<List<VocabularySet>> {
         return try {
             println("DEBUG: Fetching sets for user: $userId")

@@ -24,6 +24,7 @@ import com.edu.minlish.features.profilesetup.presentation.PersonalProfileScreen
 import com.edu.minlish.features.home.presentation.HomeScreen
 import com.edu.minlish.features.library.presentation.LibraryScreen
 import com.edu.minlish.features.library.presentation.CreateWordSetScreen
+import com.edu.minlish.features.library.presentation.AICreateWordSetScreen
 import com.edu.minlish.features.library.presentation.AddWordScreen
 import com.edu.minlish.features.library.presentation.WordListScreen
 import com.edu.minlish.features.settings.presentation.SettingsScreen
@@ -219,6 +220,9 @@ fun MinLishApp() {
                     onCreateWordSetClick = {
                         navController.navigate(Screen.CreateWordSet.route)
                     },
+                    onAICreateWordSetClick = {
+                        navController.navigate(Screen.AICreateWordSet.route)
+                    },
                     onAddWordClick = { setId ->
                         navController.navigate(Screen.AddWord.createRoute(setId))
                     }
@@ -254,6 +258,14 @@ fun MinLishApp() {
             // Create Word Set Route
             composable(Screen.CreateWordSet.route) {
                 CreateWordSetScreen(
+                    onBack = { navController.popBackStack() },
+                    onCreateSuccess = { navController.popBackStack() }
+                )
+            }
+
+            // AI Create Word Set Route
+            composable(Screen.AICreateWordSet.route) {
+                AICreateWordSetScreen(
                     onBack = { navController.popBackStack() },
                     onCreateSuccess = { navController.popBackStack() }
                 )
