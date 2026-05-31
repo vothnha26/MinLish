@@ -50,4 +50,6 @@ sealed class Screen(val route: String) {
 
     object Notifications : Screen("notifications")
     object AdminNotifications : Screen("admin_notifications")
+    
+    object Speaking : Screen("speaking")
 }

@@ -34,6 +34,7 @@ import com.edu.minlish.features.home.presentation.viewmodel.HomeViewModel
 @Composable
 fun HomeScreen(
     onStartLearning: () -> Unit,
+    onPracticeSpeaking: () -> Unit,
     onWordClick: (String) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -199,12 +200,25 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // CTA Start Learning Button
-            MinLishButton(
-                text = "Start learning",
-                onClick = onStartLearning,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
+            // CTA Buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                MinLishButton(
+                    text = "Start learning",
+                    onClick = onStartLearning,
+                    modifier = Modifier.weight(1f)
+                )
+                MinLishButton(
+                    text = "Practice speaking",
+                    onClick = onPracticeSpeaking,
+                    modifier = Modifier.weight(1f),
+                    color = Primary
+                )
+            }
 
             // Recently studied word list
             if (uiState.recentWords.isNotEmpty()) {
@@ -320,6 +334,7 @@ private fun StatsCard(
 fun HomeScreenPreview() {
     HomeScreen(
         onStartLearning = {},
+        onPracticeSpeaking = {},
         onWordClick = {}
     )
 }

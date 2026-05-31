@@ -32,6 +32,7 @@ import com.edu.minlish.features.learning.presentation.FlashcardScreen
 import com.edu.minlish.features.learning.presentation.WordDetailScreen
 import com.edu.minlish.features.notification.presentation.NotificationListScreen
 import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
+import com.edu.minlish.features.speaking.presentation.SpeakingScreen
 
 @Composable
 fun MinLishApp() {
@@ -199,6 +200,9 @@ fun MinLishApp() {
                 HomeScreen(
                     onStartLearning = {
                         navController.navigate(Screen.Flashcard.createRoute(null))
+                    },
+                    onPracticeSpeaking = {
+                        navController.navigate(Screen.Speaking.route)
                     },
                     onWordClick = { word ->
                         navController.navigate(Screen.WordDetail.createRoute(word))
@@ -374,6 +378,13 @@ fun MinLishApp() {
             // Admin Notifications Route
             composable(Screen.AdminNotifications.route) {
                 AdminNotificationScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Speaking Route
+            composable(Screen.Speaking.route) {
+                SpeakingScreen(
                     onBack = { navController.popBackStack() }
                 )
             }

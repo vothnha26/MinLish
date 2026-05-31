@@ -18,6 +18,9 @@ import com.edu.minlish.features.library.data.repository.DatamuseCollocationStrat
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import com.edu.minlish.core.ai.AIModule
+import com.edu.minlish.core.ai.model.AIAutoFillResult
+import com.google.gson.Gson
 
 sealed class AddWordUiState {
     object Idle : AddWordUiState()
@@ -180,6 +183,52 @@ class AddWordViewModel(
                 .onFailure { e ->
                     uiState = AddWordUiState.Error(e.message ?: "Failed to fetch word details")
                 }
+        }
+    }
+
+    fun aiAutoFill() {
+        if (wordText.isBlank()) return
+        
+        viewModelScope.launch {
+            uiState = AddWordUiState.Loading
+            
+            // Auto Image from LoremFlickr
+            val cleanWord = wordText.lowercase().trim()
+            val lockSeed = Math.abs(cleanWord.hashCode())
+            imageUrl = "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed"
+            
+            val result = AIModule.geminiService.generateAutoFillContent(cleanWord)
+            
+            result.onSuccess { jsonStr ->
+                try {
+                    // Extract JSON if it is wrapped in markdown code blocks by mistake
+                    val cleanJson = if (jsonStr.contains("```json")) {
+                        jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
+                    } else if (jsonStr.contains("```")) {
+                         jsonStr.substringAfter("```").substringBeforeLast("```").trim()
+                    } else {
+                        jsonStr
+                    }
+                    
+                    val autoFillResult = Gson().fromJson(cleanJson, AIAutoFillResult::class.java)
+                    
+                    wordText = autoFillResult.word.ifBlank { wordText }
+                    pronunciationText = autoFillResult.pronunciation
+                    collocationText = autoFillResult.collocations
+                    personalNoteText = autoFillResult.personalNote
+                    
+                    if (autoFillResult.definitions.isNotEmpty()) {
+                        definitions.clear()
+                        definitions.addAll(autoFillResult.definitions)
+                    }
+                    
+                    uiState = AddWordUiState.Idle
+                } catch (e: Exception) {
+                    uiState = AddWordUiState.Error("Lỗi phân tích dữ liệu AI: ${e.message}")
+                }
+            }.onFailure { e ->
+                uiState = AddWordUiState.Error("AI Error: ${e.message}")
+            }
         }
     }
 

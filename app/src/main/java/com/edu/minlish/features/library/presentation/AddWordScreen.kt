@@ -107,7 +107,18 @@ fun AddWordScreen(
                             onClick = { viewModel.smartSearch() },
                             modifier = Modifier.padding(top = 8.dp).background(Primary.copy(alpha = 0.1f), CircleShape)
                         ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "Smart Search", tint = Primary)
+                            Icon(Icons.Default.Search, contentDescription = "Dictionary Search", tint = Primary)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { viewModel.aiAutoFill() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                            modifier = Modifier.padding(top = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "AI Auto-Fill", modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("AI Fill", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     

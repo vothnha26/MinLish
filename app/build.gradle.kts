@@ -48,9 +48,11 @@ android {
         localProperties.load(localPropertiesFile.inputStream())
     }
     val googleClientId = localProperties.getProperty("google.client.id") ?: ""
+    val geminiApiKey = localProperties.getProperty("gemini.api.key") ?: ""
 
     buildTypes.all {
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 }
 
@@ -81,6 +83,7 @@ dependencies {
     implementation(libs.google.signin)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.androidx.work)
+    implementation(libs.generativeai)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
