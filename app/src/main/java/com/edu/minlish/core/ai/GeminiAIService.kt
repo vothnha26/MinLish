@@ -1,19 +1,24 @@
 package com.edu.minlish.core.ai
 
-import android.graphics.Bitmap
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
-import com.google.ai.client.generativeai.type.generationConfig
+import com.google.firebase.Firebase
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class GeminiAIService(private val apiKey: String) {
+/**
+ * Service to interact with Gemini AI through Firebase AI SDK (Vertex AI in Firebase).
+ * Authentication is handled internally by Firebase.
+ */
+class GeminiAIService(
+    private val modelName: String // No default value here to ensure it's passed from BuildConfig
+) {
     
     // For text generation and Auto-Fill
     private val textModel by lazy {
-        GenerativeModel(
-            modelName = "gemini-1.5-flash",
-            apiKey = apiKey,
+        Firebase.ai.generativeModel(
+            modelName = modelName,
             generationConfig = generationConfig {
                 temperature = 0.2f
                 responseMimeType = "application/json"
@@ -23,9 +28,9 @@ class GeminiAIService(private val apiKey: String) {
 
     // For processing Audio/Multimodal (Speaking Practice)
     private val multimodalModel by lazy {
-        GenerativeModel(
-            modelName = "gemini-1.5-pro", // Pro is better for complex audio analysis
-            apiKey = apiKey,
+        // Use the specified modelName for everything to respect local.properties
+        Firebase.ai.generativeModel(
+            modelName = modelName,
             generationConfig = generationConfig {
                 temperature = 0.4f
                 responseMimeType = "application/json"
@@ -34,9 +39,6 @@ class GeminiAIService(private val apiKey: String) {
     }
 
     suspend fun generateAutoFillContent(word: String): Result<String> = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) {
-            return@withContext Result.failure(Exception("Gemini API Key is missing. Please add it to local.properties."))
-        }
         try {
             val prompt = """
                 Bạn là một chuyên gia ngôn ngữ học. Hãy tạo từ vựng chuẩn cho từ tiếng Anh: "$word".
@@ -69,18 +71,26 @@ class GeminiAIService(private val apiKey: String) {
     }
 
     suspend fun evaluateSpeaking(topic: String, audioBytes: ByteArray): Result<String> = withContext(Dispatchers.IO) {
-         if (apiKey.isBlank()) {
-            return@withContext Result.failure(Exception("Gemini API Key is missing."))
-        }
         try {
             val inputContent = content {
-                blob("audio/mp4", audioBytes) // Adjust mime type if needed (e.g., audio/wav)
+                inlineData(audioBytes, "audio/m4a") 
                 text("""
                     You are an expert IELTS examiner. Listen to the audio of the user answering the topic: "$topic".
                     Please provide an evaluation of their speaking.
+                    
+                    CRITICAL RULES FOR TRANSCRIPTION:
+                    1. For "transcript": Write down EXACTLY what the user said in the audio.
+                       - Do NOT correct their grammar or vocabulary.
+                       - Do NOT generate a sample script, generic template, or standard IELTS answer.
+                       - Include all grammatical errors, hesitations (e.g., "uh", "um", "ah"), pauses, and repetitions.
+                       - If the audio is silent, containing only noise, or contains no speech, you MUST set "transcript" to "(No speech detected)" and "score" to "0.0".
+                    2. For "score": Give an IELTS Speaking band score from 0.0 to 10.0 based on their actual spoken words. If no speech is detected, the score must be 0.0.
+                    3. For "grammarFeedback", "vocabularyFeedback", and "fluencyFeedback": Give detailed, constructive feedback based ONLY on their actual spoken words. Highlight specific mistakes from the transcript and suggest how to correct them.
+                    4. For "overallComment": Provide a brief overall encouraging comment in Vietnamese.
+                    
                     Return the result in strictly valid JSON format exactly matching this structure without markdown formatting:
                     {
-                        "transcript": "Write down exactly what the user said",
+                        "transcript": "Exact transcription of the user's spoken words",
                         "score": "A score from 0.0 to 10.0",
                         "grammarFeedback": "Detailed feedback on grammatical errors and how to fix them",
                         "vocabularyFeedback": "Feedback on vocabulary usage and suggestions for better words",

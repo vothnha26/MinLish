@@ -152,7 +152,7 @@ class HomeViewModel(
                             val word = wordDoc.getString("word") ?: ""
 
                             // Parse Vietnamese meaning
-                            val definitionsData = wordDoc.get("definitions") as? List<Map<String, Any>> ?: emptyList()
+                            val definitionsData = (wordDoc.get("definitions") as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                             val meaning = definitionsData.firstOrNull()?.get("meaningVietnamese") as? String ?: ""
 
                             RecentWordItem(id = progress.wordId, word = word, meaning = meaning)

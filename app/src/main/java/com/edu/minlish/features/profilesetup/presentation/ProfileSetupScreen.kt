@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -289,7 +291,7 @@ private fun Step2Content(
     val goalsList = listOf(
         GoalItem("ielts", "IELTS Prep", Icons.Default.Book),
         GoalItem("toeic", "TOEIC Prep", Icons.Default.Adjust),
-        GoalItem("daily", "Daily Communication", Icons.Default.Message),
+        GoalItem("daily", "Daily Communication", Icons.AutoMirrored.Filled.Message),
         GoalItem("business", "Business English", Icons.Default.Work)
     )
 
@@ -519,7 +521,7 @@ private fun EditProfileContent(
                 title = { Text("Edit Profile", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -531,7 +533,7 @@ private fun EditProfileContent(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
     ) { paddingValues ->
@@ -628,7 +630,7 @@ private fun EditProfileContent(
             val goalsList = listOf(
                 GoalItem("ielts", "IELTS Prep", Icons.Default.Book),
                 GoalItem("toeic", "TOEIC Prep", Icons.Default.Adjust),
-                GoalItem("daily", "Daily Communication", Icons.Default.Message),
+                GoalItem("daily", "Daily Communication", Icons.AutoMirrored.Filled.Message),
                 GoalItem("business", "Business English", Icons.Default.Work)
             )
 

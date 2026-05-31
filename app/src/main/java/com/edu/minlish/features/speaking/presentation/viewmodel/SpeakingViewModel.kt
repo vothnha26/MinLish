@@ -14,6 +14,8 @@ import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import java.io.File
 
+import android.util.Log
+
 sealed class SpeakingUiState {
     object Idle : SpeakingUiState()
     object Recording : SpeakingUiState()
@@ -69,6 +71,11 @@ class SpeakingViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             try {
                 val audioBytes = file.readBytes()
+                Log.d("SpeakingViewModel", "Audio file path: ${file.absolutePath}, size: ${audioBytes.size} bytes")
+                if (audioBytes.isEmpty()) {
+                    uiState = SpeakingUiState.Error("Lỗi: File ghi âm trống (0 bytes).")
+                    return@launch
+                }
                 val response = AIModule.geminiService.evaluateSpeaking(selectedTopic.prompt, audioBytes)
 
                 response.onSuccess { jsonStr ->

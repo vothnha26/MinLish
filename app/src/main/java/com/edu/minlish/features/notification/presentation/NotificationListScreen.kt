@@ -43,7 +43,7 @@ fun NotificationListScreen(
                         Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = Primary)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
     ) { paddingValues ->

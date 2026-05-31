@@ -4,10 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -29,10 +29,10 @@ fun MinLishBottomNav(
     currentRoute: String?,
     onTabClick: (Screen) -> Unit
 ) {
-    val tabs = listOf(
+    val items = listOf(
         TabItem(Screen.Home, Icons.Default.Home, "Home"),
+        TabItem(Screen.Stats, Icons.AutoMirrored.Filled.TrendingUp, "Stats"),
         TabItem(Screen.Library, Icons.Default.Book, "Library"),
-        TabItem(Screen.Stats, Icons.Default.TrendingUp, "Stats"),
         TabItem(Screen.PersonalProfile, Icons.Default.Person, "Profile")
     )
 
@@ -50,7 +50,7 @@ fun MinLishBottomNav(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            tabs.forEach { tab ->
+            items.forEach { tab ->
                 val isActive = currentRoute == tab.screen.route
                 
                 Column(

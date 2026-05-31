@@ -87,7 +87,7 @@ class FirestoreVocabularyRepositoryImpl(
             val words = snapshot.documents.mapNotNull { doc ->
                 try {
                     val data = doc.data ?: return@mapNotNull null
-                    val definitionsData = data["definitions"] as? List<Map<String, Any>> ?: emptyList()
+                    val definitionsData = (data["definitions"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                     
                     val definitions = definitionsData.map { defMap ->
                         WordDefinition(
@@ -141,7 +141,7 @@ class FirestoreVocabularyRepositoryImpl(
             }
             val data = doc.data
             if (data != null) {
-                val definitionsData = data["definitions"] as? List<Map<String, Any>> ?: emptyList()
+                val definitionsData = (data["definitions"] as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                 val definitions = definitionsData.map { defMap ->
                     WordDefinition(
                         pos = defMap["pos"] as? String ?: "",

@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,7 +58,7 @@ fun AddWordScreen(
             CenterAlignedTopAppBar(
                 title = { Text(if (wordId != null) "Edit Vocabulary" else "Add Vocabulary", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
                     if (uiState is AddWordUiState.Loading) {
@@ -65,7 +66,7 @@ fun AddWordScreen(
                         Spacer(modifier = Modifier.width(16.dp))
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = Color(0xFFFBFBFB)
@@ -128,7 +129,7 @@ fun AddWordScreen(
                         }
                         if (viewModel.audioUrl.isNotBlank()) {
                             IconButton(onClick = { viewModel.playAudio() }) {
-                                Icon(Icons.Default.VolumeUp, contentDescription = "Play Audio", tint = Primary)
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Play Audio", tint = Primary)
                             }
                         }
                     }

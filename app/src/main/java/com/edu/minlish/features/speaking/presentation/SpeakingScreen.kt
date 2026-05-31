@@ -1,5 +1,9 @@
 package com.edu.minlish.features.speaking.presentation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -47,6 +52,26 @@ fun SpeakingScreen(
     val uiState = viewModel.uiState
     val scrollState = rememberScrollState()
 
+    // Permission handling
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.toggleRecording()
+        }
+    }
+
+    fun handleRecordClick() {
+        when (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)) {
+            PackageManager.PERMISSION_GRANTED -> {
+                viewModel.toggleRecording()
+            }
+            else -> {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -56,7 +81,7 @@ fun SpeakingScreen(
                         Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
         containerColor = Color(0xFFFBFBFB)
@@ -125,11 +150,11 @@ fun SpeakingScreen(
                 }
                 is SpeakingUiState.Error -> {
                     Text(text = uiState.message, color = Color.Red, modifier = Modifier.padding(16.dp))
-                    RecordButton(isRecording = false, onClick = { viewModel.toggleRecording() })
+                    RecordButton(isRecording = false, onClick = { handleRecordClick() })
                 }
                 else -> {
                     val isRecording = uiState is SpeakingUiState.Recording
-                    RecordButton(isRecording = isRecording, onClick = { viewModel.toggleRecording() })
+                    RecordButton(isRecording = isRecording, onClick = { handleRecordClick() })
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = if (isRecording) "Recording... Tap to stop" else "Tap to start speaking",

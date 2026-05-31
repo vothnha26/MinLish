@@ -216,7 +216,7 @@ fun HomeScreen(
                     text = "Practice speaking",
                     onClick = onPracticeSpeaking,
                     modifier = Modifier.weight(1f),
-                    color = Primary
+                    containerColor = Primary
                 )
             }
 

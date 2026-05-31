@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -56,10 +57,10 @@ fun PersonalProfileScreen(
                 title = { Text("Profile", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { viewModel.logout(onLogout) }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.Red)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
     ) { padding ->
@@ -166,7 +167,7 @@ fun PersonalProfileScreen(
                             onClick = {}
                         )
                         ProfileMenuItem(
-                            icon = Icons.Default.Help,
+                            icon = Icons.AutoMirrored.Filled.Help,
                             title = "Help & Support",
                             onClick = {}
                         )

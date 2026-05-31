@@ -4,6 +4,10 @@ import com.edu.minlish.BuildConfig
 
 object AIModule {
     val geminiService: GeminiAIService by lazy {
-        GeminiAIService(BuildConfig.GEMINI_API_KEY)
+        val model = BuildConfig.GEMINI_MODEL
+        if (model.isBlank()) {
+            throw IllegalStateException("Gemini Model is not configured in local.properties. Please add 'gemini.model=...'")
+        }
+        GeminiAIService(modelName = model)
     }
 }

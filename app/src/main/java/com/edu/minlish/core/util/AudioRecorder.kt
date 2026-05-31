@@ -26,31 +26,60 @@ class AudioRecorder(private val context: Context) {
 
         currentOutputFile = File(storageDir, fileName)
 
-        recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // Try with optimal high-quality settings first
+        val success = tryRecord(currentOutputFile, useOptimalSettings = true)
+        if (success) {
+            isRecording = true
+            return true
+        }
+
+        Log.w("AudioRecorder", "Failed to start recording with optimal settings. Retrying with default settings...")
+        // Fallback to default settings
+        val fallbackSuccess = tryRecord(currentOutputFile, useOptimalSettings = false)
+        if (fallbackSuccess) {
+            isRecording = true
+            return true
+        }
+
+        return false
+    }
+
+    private fun tryRecord(outputFile: File?, useOptimalSettings: Boolean): Boolean {
+        val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(context)
         } else {
             @Suppress("DEPRECATION")
             MediaRecorder()
-        }.apply {
-            try {
+        }
+
+        return try {
+            mediaRecorder.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setOutputFile(currentOutputFile?.absolutePath)
+                
+                if (useOptimalSettings) {
+                    setAudioSamplingRate(44100) // 44.1kHz is extremely safe and supported by all Android devices
+                    setAudioEncodingBitRate(64000)
+                    setAudioChannels(1)
+                }
+
+                setOutputFile(outputFile?.absolutePath)
                 prepare()
                 start()
-                isRecording = true
-                Log.d("AudioRecorder", "Recording started: ${currentOutputFile?.absolutePath}")
-                return true
-            } catch (e: IOException) {
-                Log.e("AudioRecorder", "prepare() failed", e)
-                return false
-            } catch (e: Exception) {
-                Log.e("AudioRecorder", "start() failed", e)
-                return false
             }
+            recorder = mediaRecorder
+            Log.d("AudioRecorder", "Recording started successfully (optimal=$useOptimalSettings): ${outputFile?.absolutePath}")
+            true
+        } catch (e: Exception) {
+            Log.e("AudioRecorder", "tryRecord(optimal=$useOptimalSettings) failed", e)
+            try {
+                mediaRecorder.release()
+            } catch (ex: Exception) {
+                // Ignore release errors
+            }
+            false
         }
-        return false
     }
 
     fun stopRecording(): File? {
