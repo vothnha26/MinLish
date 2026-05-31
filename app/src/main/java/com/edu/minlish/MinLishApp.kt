@@ -198,7 +198,7 @@ fun MinLishApp() {
             composable(Screen.Home.route) {
                 HomeScreen(
                     onStartLearning = {
-                        navController.navigate(Screen.Flashcard.route)
+                        navController.navigate(Screen.Flashcard.createRoute(null))
                     },
                     onWordClick = { word ->
                         navController.navigate(Screen.WordDetail.createRoute(word))

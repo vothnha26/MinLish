@@ -40,9 +40,11 @@ fun FlashcardScreen(
     viewModel: FlashcardViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
+    val normalizedSetId = setId
+        ?.takeIf { it.isNotBlank() && it != "{setId}" }
 
-    LaunchedEffect(setId) {
-        viewModel.loadWords(setId)
+    LaunchedEffect(normalizedSetId) {
+        viewModel.loadWords(normalizedSetId)
     }
 
     DisposableEffect(Unit) {
@@ -78,7 +80,7 @@ fun FlashcardScreen(
                 is FlashcardUiState.Finished -> {
                     StudyFinishedSession(
                         onBack = onBack,
-                        onReviewAll = { viewModel.loadWords(setId, forceAll = true) }
+                        onReviewAll = { viewModel.loadWords(normalizedSetId, forceAll = true) }
                     )
                 }
                 is FlashcardUiState.Success -> {
@@ -119,7 +121,10 @@ fun FlashcardScreen(
                         
                         // Rating Buttons (Only show when flipped)
                         if (viewModel.isFlipped) {
-                            RatingButtons(onRate = { rating -> viewModel.submitRating(rating) })
+                            RatingButtons(
+                                enabled = !viewModel.isSubmittingRating,
+                                onRate = { rating -> viewModel.submitRating(rating) }
+                            )
                         } else {
                             Button(
                                 onClick = { viewModel.onFlip() },
@@ -252,22 +257,32 @@ fun Flashcard(
 }
 
 @Composable
-fun RatingButtons(onRate: (Int) -> Unit) {
+fun RatingButtons(
+    enabled: Boolean = true,
+    onRate: (Int) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        RatingButton(text = "Again", color = Color(0xFFFF5252), modifier = Modifier.weight(1f)) { onRate(0) }
-        RatingButton(text = "Hard", color = Color(0xFFFFB74D), modifier = Modifier.weight(1f)) { onRate(1) }
-        RatingButton(text = "Good", color = Color(0xFF64B5F6), modifier = Modifier.weight(1f)) { onRate(2) }
-        RatingButton(text = "Easy", color = Color(0xFF81C784), modifier = Modifier.weight(1f)) { onRate(3) }
+        RatingButton(text = "Again", color = Color(0xFFFF5252), enabled = enabled, modifier = Modifier.weight(1f)) { onRate(0) }
+        RatingButton(text = "Hard", color = Color(0xFFFFB74D), enabled = enabled, modifier = Modifier.weight(1f)) { onRate(1) }
+        RatingButton(text = "Good", color = Color(0xFF64B5F6), enabled = enabled, modifier = Modifier.weight(1f)) { onRate(2) }
+        RatingButton(text = "Easy", color = Color(0xFF81C784), enabled = enabled, modifier = Modifier.weight(1f)) { onRate(3) }
     }
 }
 
 @Composable
-fun RatingButton(text: String, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun RatingButton(
+    text: String,
+    color: Color,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.height(56.dp),
         colors = ButtonDefaults.buttonColors(containerColor = color),
         shape = RoundedCornerShape(12.dp),

@@ -1,5 +1,6 @@
 package com.edu.minlish.features.learning.presentation.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -32,11 +33,17 @@ class FlashcardViewModel(
     private val profileRepository: ProfileRepository = FirestoreProfileRepositoryImpl()
 ) : ViewModel() {
 
+    private companion object {
+        const val TAG = "FlashcardViewModel"
+    }
+
     var uiState by mutableStateOf<FlashcardUiState>(FlashcardUiState.Loading)
         private set
 
     var currentIndex by mutableStateOf(0)
     var isFlipped by mutableStateOf(false)
+    var isSubmittingRating by mutableStateOf(false)
+        private set
 
     fun loadWords(setId: String?, forceAll: Boolean = false) {
         val currentUser = authRepository.getCurrentUser()
@@ -84,37 +91,63 @@ class FlashcardViewModel(
     }
 
     fun submitRating(rating: Int) {
+        if (isSubmittingRating) return
+
         val currentWords = (uiState as? FlashcardUiState.Success)?.words ?: return
         val (word, progress) = currentWords[currentIndex]
         val currentUser = authRepository.getCurrentUser() ?: return
 
         viewModelScope.launch {
-            val updatedProgress = calculateSM2(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
-            repository.updateProgress(updatedProgress)
+            isSubmittingRating = true
+            try {
+                val updatedProgress = calculateSM2(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
+                val progressResult = repository.updateProgress(updatedProgress)
+                if (progressResult.isFailure) {
+                    val message = progressResult.exceptionOrNull()?.message ?: "Failed to update progress"
+                    Log.e(TAG, "Failed to update progress for wordId=${word.id}: $message")
+                    uiState = FlashcardUiState.Error(message)
+                    return@launch
+                }
 
-            val ratingStr = when (rating) {
-                0 -> "AGAIN"
-                1 -> "HARD"
-                2 -> "GOOD"
-                3 -> "EASY"
-                else -> "GOOD"
-            }
+                val ratingStr = when (rating) {
+                    0 -> "AGAIN"
+                    1 -> "HARD"
+                    2 -> "GOOD"
+                    3 -> "EASY"
+                    else -> "GOOD"
+                }
 
-            val log = UserReviewLog(
-                userId = currentUser.id,
-                wordId = word.id,
-                reviewedAt = Date(),
-                rating = ratingStr,
-                intervalBefore = progress?.interval ?: 0,
-                intervalAfter = updatedProgress.interval
-            )
-            repository.logReview(log)
+                val log = UserReviewLog(
+                    userId = currentUser.id,
+                    wordId = word.id,
+                    reviewedAt = Date(),
+                    rating = ratingStr,
+                    intervalBefore = progress?.interval ?: 0,
+                    intervalAfter = updatedProgress.interval
+                )
+                val logResult = repository.logReview(log)
+                if (logResult.isFailure) {
+                    val message = logResult.exceptionOrNull()?.message ?: "Failed to save review log"
+                    Log.e(TAG, "Failed to save review log for wordId=${word.id}: $message")
+                    uiState = FlashcardUiState.Error(message)
+                    return@launch
+                }
+                Log.d(TAG, "Saved review log to user_review_logs for wordId=${word.id}, rating=$ratingStr")
 
-            if (currentIndex < currentWords.size - 1) {
-                currentIndex++
-                isFlipped = false
-            } else {
-                uiState = FlashcardUiState.Finished
+                if (rating == 0) {
+                    isFlipped = false
+                    Log.d(TAG, "Keeping wordId=${word.id} on current card after Again rating")
+                    return@launch
+                }
+
+                if (currentIndex < currentWords.size - 1) {
+                    currentIndex++
+                    isFlipped = false
+                } else {
+                    uiState = FlashcardUiState.Finished
+                }
+            } finally {
+                isSubmittingRating = false
             }
         }
     }
