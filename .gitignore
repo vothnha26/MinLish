@@ -28,6 +28,7 @@ Thumbs.db
 *.bundle
 
 # Logs and transient files
+*.log
 firebase-debug.log
 .firebaserc
 firebase.json

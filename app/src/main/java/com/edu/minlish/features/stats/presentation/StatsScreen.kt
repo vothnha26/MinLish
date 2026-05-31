@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Whatshot
@@ -35,7 +36,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.tooling.preview.Preview
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
-import com.edu.minlish.features.stats.presentation.components.BarChartData
 import com.edu.minlish.features.stats.presentation.components.SimpleBarChart
 import com.edu.minlish.features.stats.presentation.viewmodel.StatsViewModel
 import com.edu.minlish.features.stats.presentation.viewmodel.StatsUiState
@@ -68,31 +68,28 @@ fun StatsScreen(
             val statsList = listOf(
                 StatsItem(Icons.Default.Whatshot, "Current streak", "${uiState.currentStreak} days"),
                 StatsItem(Icons.Default.Book, "Total words", "${uiState.totalWords}"),
-                StatsItem(Icons.Default.Psychology, "Retention rate", "${uiState.retentionRate.toInt()}%")
+                StatsItem(Icons.Default.Adjust, "Due today", "${uiState.dueTodayWords}"),
+                StatsItem(Icons.Default.WorkspacePremium, "Mastered", "${uiState.masteredWords}"),
+                StatsItem(Icons.Default.Psychology, "Retention", "${uiState.retentionRate.toInt()}%")
             )
 
-            val weeklyData = listOf(
-                BarChartData("Mon", 18), BarChartData("Tue", 24), BarChartData("Wed", 12),
-                BarChartData("Thu", 30), BarChartData("Fri", 22), BarChartData("Sat", 8), BarChartData("Sun", 20)
-            )
-            val todayIndex = 3 // Thursday
-
-            val monthlyData = listOf(
-                BarChartData("W1", 95), BarChartData("W2", 112), BarChartData("W3", 88), BarChartData("W4", 134)
-            )
+            val weeklyData = uiState.weeklyData
+            val todayIndex = uiState.weeklyActiveIndex
+            val monthlyData = uiState.monthlyData
+            val level = uiState.levelEstimate
 
             val totalRated = uiState.easyCount + uiState.goodCount + uiState.hardCount + uiState.againCount
             val breakdown = if (totalRated > 0) {
                 listOf(
-                    RatingBreakdownItem("Easy", uiState.easyCount.toFloat() / totalRated, "${uiState.easyCount} words"),
-                    RatingBreakdownItem("Good", uiState.goodCount.toFloat() / totalRated, "${uiState.goodCount} words"),
-                    RatingBreakdownItem("Hard", uiState.hardCount.toFloat() / totalRated, "${uiState.hardCount} words"),
-                    RatingBreakdownItem("Again", uiState.againCount.toFloat() / totalRated, "${uiState.againCount} words")
+                    RatingBreakdownItem("Easy", uiState.easyCount.toFloat() / totalRated, "${uiState.easyCount} reviews"),
+                    RatingBreakdownItem("Good", uiState.goodCount.toFloat() / totalRated, "${uiState.goodCount} reviews"),
+                    RatingBreakdownItem("Hard", uiState.hardCount.toFloat() / totalRated, "${uiState.hardCount} reviews"),
+                    RatingBreakdownItem("Again", uiState.againCount.toFloat() / totalRated, "${uiState.againCount} reviews")
                 )
             } else {
                 listOf(
-                    RatingBreakdownItem("Easy", 0f, "0 words"), RatingBreakdownItem("Good", 0f, "0 words"),
-                    RatingBreakdownItem("Hard", 0f, "0 words"), RatingBreakdownItem("Again", 0f, "0 words")
+                    RatingBreakdownItem("Easy", 0f, "0 reviews"), RatingBreakdownItem("Good", 0f, "0 reviews"),
+                    RatingBreakdownItem("Hard", 0f, "0 reviews"), RatingBreakdownItem("Again", 0f, "0 reviews")
                 )
             }
 
@@ -145,16 +142,40 @@ fun StatsScreen(
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Intermediate B1",
+                    text = "${level.code} ${level.label}",
                     color = Color(0xFF111111),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Next: Upper-intermediate B2",
+                    text = if (level.nextCode != null) {
+                        "Next: ${level.nextCode} ${level.nextLabel}"
+                    } else {
+                        "Highest level reached"
+                    },
                     color = Color(0xFF6B6B6B),
                     fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .width(190.dp)
+                        .height(6.dp)
+                        .background(Color(0xFFE5E5E5), shape = RoundedCornerShape(100.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(level.progressToNext)
+                            .background(Color(0xFF111111), shape = RoundedCornerShape(100.dp))
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Score ${level.score.toInt()}/100 based on mastery, retention and consistency",
+                    color = Color(0xFF6B6B6B),
+                    fontSize = 10.sp
                 )
             }
             
@@ -163,12 +184,12 @@ fun StatsScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.WorkspacePremium,
-                    contentDescription = "B1 Level",
+                    contentDescription = "${level.code} Level",
                     tint = Color(0xFF111111),
                     modifier = Modifier.size(32.dp)
                 )
                 Text(
-                    text = "B1",
+                    text = level.code,
                     color = Color(0xFF111111),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
@@ -177,38 +198,45 @@ fun StatsScreen(
         }
 
         // Stats Mini Cards Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            statsList.forEach { item ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
-                        .padding(12.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            statsList.chunked(3).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = item.label,
-                            tint = Color(0xFF6B6B6B),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = item.value,
-                            color = Color(0xFF111111),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = item.label,
-                            color = Color(0xFF6B6B6B),
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp
-                        )
+                    rowItems.forEach { item ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    tint = Color(0xFF6B6B6B),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = item.value,
+                                    color = Color(0xFF111111),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = item.label,
+                                    color = Color(0xFF6B6B6B),
+                                    fontSize = 10.sp,
+                                    lineHeight = 12.sp
+                                )
+                            }
+                        }
+                    }
+                    repeat(3 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -235,7 +263,7 @@ fun StatsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "You are on a 7-day streak!",
+                        text = "You are on a ${uiState.currentStreak}-day streak!",
                         color = Color(0xFF6B6B6B),
                         fontSize = 12.sp
                     )
@@ -264,11 +292,11 @@ fun StatsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val days = listOf("M", "T", "W", "T", "F", "S", "S")
-                val completedDays = listOf(true, true, true, true, false, false, false) // Mon, Tue, Wed, Thu completed
+                val days = weeklyData.map { it.label.take(1) }
+                val completedDays = uiState.weeklyCompletedDays
 
                 days.forEachIndexed { index, day ->
-                    val isDone = completedDays[index]
+                    val isDone = completedDays.getOrElse(index) { false }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -371,7 +399,7 @@ fun StatsScreen(
                     Text("Equip Streak Freeze", fontWeight = FontWeight.Bold, color = Color(0xFF111111))
                 },
                 text = {
-                    Text("Use 1 Streak Freeze to protect your streak today. If you cannot study, your 7-day streak will not be reset.")
+                    Text("Use 1 Streak Freeze to protect your streak today. If you cannot study, your current streak will not be reset.")
                 },
                 shape = RoundedCornerShape(12.dp),
                 containerColor = Color.White
@@ -438,7 +466,7 @@ fun StatsScreen(
                     .border(1.dp, Border, shape = RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
-                SimpleBarChart(data = monthlyData, activeIndex = 3, maxBarHeight = 80.dp)
+                SimpleBarChart(data = monthlyData, activeIndex = monthlyData.lastIndex.coerceAtLeast(0), maxBarHeight = 80.dp)
             }
         }
 
