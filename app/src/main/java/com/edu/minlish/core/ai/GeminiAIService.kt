@@ -1,5 +1,7 @@
 package com.edu.minlish.core.ai
 
+import com.edu.minlish.features.speaking.domain.model.SpeakingChatMessage
+import com.edu.minlish.features.speaking.domain.model.MessageSender
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.content
@@ -115,31 +117,151 @@ class GeminiAIService(
         }
     }
 
-    suspend fun evaluateSpeaking(topic: String, audioBytes: ByteArray): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun generateFirstQuestion(topic: String, mode: String): Result<String> = withContext(Dispatchers.IO) {
         try {
+            val systemContext = when (mode) {
+                "IELTS Speaking" -> "You are an official IELTS Speaking Examiner. Conduct the session like a formal IELTS Speaking exam. Assess the user's band score criteria (Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, Pronunciation)."
+                "TOEIC Speaking" -> "You are a TOEIC Speaking Evaluator. Conduct the session focusing on business contexts, picture descriptions, and expressing opinions in a professional, concise manner."
+                "Job Interview Prep" -> "You are an HR Manager interviewing the user for a professional job role. Conduct the session as a job interview, asking relevant situational and behavioral questions."
+                else -> "You are a friendly, encouraging English speaking partner helping the user practice daily conversations."
+            }
+
+            val prompt = """
+                $systemContext
+                The user has chosen the speaking topic: "$topic".
+                Generate a friendly opening greeting and ask the first question to begin the practice session.
+                Keep it concise (1-2 sentences).
+                
+                Return the response in strictly valid JSON format without markdown wrapping:
+                {
+                  "question": "Friendly greeting and the first question"
+                }
+            """.trimIndent()
+            val response = textModel.generateContent(prompt)
+            val text = response.text ?: throw Exception("Empty response from AI")
+            Result.success(text.trim())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun generateNextTurn(
+        topic: String,
+        mode: String,
+        history: List<SpeakingChatMessage>,
+        audioBytes: ByteArray
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val historyStr = history.joinToString(separator = "\n") { msg ->
+                when (msg.sender) {
+                    MessageSender.AI -> "AI Interviewer: ${msg.text}"
+                    MessageSender.USER -> "User Candidate: ${msg.transcript ?: msg.text}"
+                }
+            }
+
+            val systemContext = when (mode) {
+                "IELTS Speaking" -> "You are an official IELTS Speaking Examiner conducting an exam about '$topic'. Keep your role formal and professional. The next question should follow IELTS Speaking formats."
+                "TOEIC Speaking" -> "You are a TOEIC Speaking Evaluator conducting a test about '$topic'. Focus on professional and business contexts."
+                "Job Interview Prep" -> "You are an HR Manager interviewing the user about '$topic'. Keep your questions realistic, professional, and job-oriented."
+                else -> "You are a friendly and encouraging English conversation partner practicing daily dialog about '$topic'."
+            }
+
             val inputContent = content {
-                inlineData(audioBytes, "audio/mp4") 
+                inlineData(audioBytes, "audio/mp4")
                 text("""
-                    TASK: Transcribe and evaluate the provided audio.
-                    TOPIC: "$topic"
+                    $systemContext
+                    Here is the conversation history:
+                    $historyStr
                     
-                    STRICT INSTRUCTIONS:
-                    1. FOR THE "transcript" FIELD: You MUST write down exactly word-for-word what the user said in the audio. DO NOT use template answers, DO NOT clean up the speech, and DO NOT hallucinate. If the user said "Uhm, I... I like apple", the transcript must be "Uhm, I... I like apple".
-                    2. Evaluate the performance based on the ACTUAL transcript.
+                    TASK:
+                    1. Listen to the user's latest audio response (the attached audio).
+                    2. Transcribe the audio word-for-word (`transcript`). Do not correct grammar or clean up stuttering in the transcript.
+                    3. Generate a friendly, natural reply in English reacting to the user's answer (`reply`).
+                    4. Generate the next logical question in English to keep the conversation flowing (`nextQuestion`).
+                    5. Provide a short, constructive feedback in Vietnamese about their grammar, vocabulary, or pronunciation for this specific turn (`turnFeedback`).
                     
-                    Return the result in strictly valid JSON format without markdown formatting:
+                    Return the result in strictly valid JSON format without markdown wrapping:
                     {
-                        "transcript": "The exact verbatim transcription of the audio",
-                        "score": "A score from 0.0 to 10.0",
-                        "grammarFeedback": "Feedback based ONLY on what was actually said",
-                        "vocabularyFeedback": "Suggestions based ONLY on what was actually said",
-                        "fluencyFeedback": "Feedback on pronunciation and hesitations in the audio",
-                        "overallComment": "Encouraging summary in Vietnamese"
+                      "transcript": "Exact transcription of user's audio",
+                      "reply": "Friendly response in English",
+                      "nextQuestion": "The next question to ask",
+                      "turnFeedback": "Gợi ý/nhận xét nhanh bằng tiếng Việt"
                     }
                 """.trimIndent())
             }
-            
+
             val response = multimodalModel.generateContent(inputContent)
+            val text = response.text ?: throw Exception("Empty response from AI")
+            Result.success(text.trim())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun evaluateSession(
+        topic: String,
+        mode: String,
+        history: List<SpeakingChatMessage>
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val historyStr = history.joinToString(separator = "\n") { msg ->
+                when (msg.sender) {
+                    MessageSender.AI -> "AI: ${msg.text}"
+                    MessageSender.USER -> "User: [Transcript: ${msg.transcript ?: ""}]"
+                }
+            }
+
+            val modePrompt = when (mode) {
+                "IELTS Speaking" -> """
+                    Evaluate under the official IELTS Speaking test standards (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation). 
+                    For the "score", provide an estimated IELTS Band Score from 1.0 to 9.0 (e.g. "6.5 Band").
+                """.trimIndent()
+                "TOEIC Speaking" -> """
+                    Evaluate under the official TOEIC Speaking standards.
+                    For the "score", provide a predicted TOEIC Speaking score range or scale out of 200 (e.g., "130/200").
+                """.trimIndent()
+                "Job Interview Prep" -> """
+                    Evaluate their suitability, confidence, professional vocabulary, and clarity for a job interview.
+                    For the "score", provide a score out of 100 (e.g., "85/100").
+                """.trimIndent()
+                else -> """
+                    Evaluate their general conversation capability, confidence, and comprehension.
+                    For the "score", provide a score out of 10 (e.g., "8.5 / 10").
+                """.trimIndent()
+            }
+
+            val prompt = """
+                You are an English speaking assessor. Evaluate the user's performance for this speaking practice session.
+                
+                Topic: "$topic"
+                Mode / Exam Format: "$mode"
+                
+                Evaluation Context:
+                $modePrompt
+                
+                Conversation History:
+                $historyStr
+                
+                Tasks:
+                1. Determine the "score" matching the format specified in the Evaluation Context.
+                2. Provide detailed Grammar feedback, highlighting specific errors and how to correct them.
+                3. Provide detailed Vocabulary feedback, suggesting better word choices and expressions.
+                4. Provide detailed Fluency and Pronunciation feedback.
+                5. Write an overall encouraging summary in Vietnamese.
+                6. Compile all user transcripts into a single string for reference.
+                
+                Return the result in strictly valid JSON format without markdown:
+                {
+                  "transcript": "Full combined transcripts of user responses",
+                  "score": "Score string (e.g. '6.5 Band' or '130/200' or '8.5 / 10')",
+                  "grammarFeedback": "Detailed grammar feedback",
+                  "vocabularyFeedback": "Detailed vocabulary feedback",
+                  "fluencyFeedback": "Detailed fluency feedback",
+                  "overallComment": "Nhận xét tổng quát bằng tiếng Việt"
+                }
+            """.trimIndent()
+
+            val response = textModel.generateContent(prompt)
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
