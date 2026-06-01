@@ -1,5 +1,7 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -7,9 +9,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
 import com.edu.minlish.features.auth.domain.repository.AuthRepository
+import com.edu.minlish.features.library.data.importer.VocabularyImportManager
+import com.edu.minlish.features.library.domain.model.ImportVocabularyPreview
 import com.edu.minlish.features.library.data.repository.FirestoreVocabularyRepositoryImpl
+import com.edu.minlish.features.library.domain.model.VocabularyWord
+import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
+import java.util.Date
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -19,9 +26,19 @@ sealed class LibraryUiState {
     data class Error(val message: String) : LibraryUiState()
 }
 
+sealed class ImportUiState {
+    object Idle : ImportUiState()
+    object Parsing : ImportUiState()
+    data class Preview(val preview: ImportVocabularyPreview) : ImportUiState()
+    object Importing : ImportUiState()
+    data class Success(val importedCount: Int) : ImportUiState()
+    data class Error(val message: String) : ImportUiState()
+}
+
 class LibraryViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
-    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val importManager: VocabularyImportManager = VocabularyImportManager()
 ) : ViewModel() {
 
     var uiState by mutableStateOf<LibraryUiState>(LibraryUiState.Loading)
@@ -29,6 +46,13 @@ class LibraryViewModel(
 
     var searchQuery by mutableStateOf("")
     var selectedCategory by mutableStateOf("All")
+
+    var importUiState by mutableStateOf<ImportUiState>(ImportUiState.Idle)
+        private set
+
+    var importSetTitle by mutableStateOf("")
+
+    var importCategory by mutableStateOf("Custom")
 
     val filteredSets: List<VocabularySet>
         get() {
@@ -145,5 +169,95 @@ class LibraryViewModel(
                     uiState = LibraryUiState.Error(e.message ?: "Failed to load sets")
                 }
         }
+    }
+
+    fun parseImportFile(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            importUiState = ImportUiState.Parsing
+            importManager.parseFromUri(context, uri)
+                .onSuccess { preview ->
+                    if (preview.validRows.isEmpty()) {
+                        importUiState = ImportUiState.Error(
+                            preview.errors.firstOrNull()?.message ?: "No valid vocabulary rows found"
+                        )
+                        return@onSuccess
+                    }
+
+                    importSetTitle = preview.fileName
+                        .substringBeforeLast('.', preview.fileName)
+                        .replace("_", " ")
+                        .replace("-", " ")
+                        .trim()
+                        .ifBlank { "Imported Vocabulary" }
+
+                    importCategory = if (selectedCategory != "All") selectedCategory else "Custom"
+                    importUiState = ImportUiState.Preview(preview)
+                }
+                .onFailure { e ->
+                    importUiState = ImportUiState.Error(e.message ?: "Failed to parse import file")
+                }
+        }
+    }
+
+    fun confirmImport(title: String, category: String) {
+        val currentUser = authRepository.getCurrentUser()
+        if (currentUser == null) {
+            importUiState = ImportUiState.Error("User not logged in")
+            return
+        }
+
+        val previewState = importUiState as? ImportUiState.Preview ?: return
+        val normalizedTitle = title.trim()
+        val normalizedCategory = category.trim().ifBlank { "Custom" }
+
+        if (normalizedTitle.isBlank()) {
+            importUiState = ImportUiState.Error("Set title is required")
+            return
+        }
+
+        viewModelScope.launch {
+            importUiState = ImportUiState.Importing
+            val importedAt = Date()
+            val set = VocabularySet(
+                creatorId = currentUser.id,
+                title = normalizedTitle,
+                description = "Imported from ${previewState.preview.fileName}",
+                category = normalizedCategory,
+                wordCount = previewState.preview.validRows.size,
+                createdAt = importedAt
+            )
+            val words = previewState.preview.validRows.map { row ->
+                VocabularyWord(
+                    word = row.word,
+                    pronunciation = row.pronunciation,
+                    definitions = listOf(
+                        WordDefinition(
+                            pos = row.pos,
+                            meaningVietnamese = row.meaningVietnamese,
+                            definitionEnglish = row.definitionEnglish,
+                            exampleSentence = row.exampleSentence,
+                            synonyms = row.synonyms,
+                            antonyms = row.antonyms
+                        )
+                    ),
+                    collocations = row.collocations,
+                    personalNote = row.personalNote,
+                    createdAt = importedAt
+                )
+            }
+
+            repository.importWords(set, words)
+                .onSuccess {
+                    importUiState = ImportUiState.Success(words.size)
+                    loadUserSets()
+                }
+                .onFailure { e ->
+                    importUiState = ImportUiState.Error(e.message ?: "Failed to import vocabulary")
+                }
+        }
+    }
+
+    fun clearImportState() {
+        importUiState = ImportUiState.Idle
     }
 }

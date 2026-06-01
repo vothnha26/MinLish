@@ -5,7 +5,9 @@ import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.Date
 
@@ -85,6 +87,52 @@ class FirestoreVocabularyRepositoryImpl(
                     .document(word.vocabularySetId)
                     .update("wordCount", com.google.firebase.firestore.FieldValue.increment(1))
                     .await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun importWords(set: VocabularySet, words: List<VocabularyWord>): Result<Unit> {
+        if (words.isEmpty()) {
+            return Result.failure(Exception("No valid words to import"))
+        }
+
+        return try {
+            withContext(Dispatchers.IO) {
+                withTimeout(30000) {
+                    val setRef = firestore.collection("vocabulary_sets").document()
+                    val setId = setRef.id
+                    val wordChunks = words.chunked(490)
+
+                    wordChunks.forEachIndexed { index, chunk ->
+                        val batch = firestore.batch()
+
+                        if (index == 0) {
+                            batch.set(
+                                setRef,
+                                set.copy(
+                                    id = setId,
+                                    wordCount = words.size
+                                )
+                            )
+                        }
+
+                        chunk.forEach { word ->
+                            val wordRef = firestore.collection("vocabulary_words").document()
+                            batch.set(
+                                wordRef,
+                                word.copy(
+                                    id = wordRef.id,
+                                    vocabularySetId = setId
+                                )
+                            )
+                        }
+
+                        batch.commit().await()
+                    }
+                }
             }
             Result.success(Unit)
         } catch (e: Exception) {

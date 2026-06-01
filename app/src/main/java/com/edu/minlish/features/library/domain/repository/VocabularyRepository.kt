@@ -24,6 +24,7 @@ interface VocabularyRepository {
     // Vocabulary Words
     suspend fun fetchWordDetails(word: String): Result<List<DictionaryEntry>>
     suspend fun addWord(word: VocabularyWord): Result<Unit>
+    suspend fun importWords(set: VocabularySet, words: List<VocabularyWord>): Result<Unit>
     suspend fun updateWord(word: VocabularyWord): Result<Unit>
     suspend fun deleteWord(wordId: String): Result<Unit>
     suspend fun getWordsBySet(setId: String): Result<List<VocabularyWord>>
