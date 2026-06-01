@@ -33,11 +33,11 @@ object LevelEstimator {
     private fun mapScoreToLevel(score: Float): LevelEstimate {
         val levels = listOf(
             LevelRange("A1", "Beginner", 0f, 15f),
-            LevelRange("A2", "Elementary", 16f, 30f),
-            LevelRange("B1", "Intermediate", 31f, 50f),
-            LevelRange("B2", "Upper-intermediate", 51f, 70f),
-            LevelRange("C1", "Advanced", 71f, 88f),
-            LevelRange("C2", "Mastery", 89f, 100f)
+            LevelRange("A2", "Elementary", 15f, 30f),
+            LevelRange("B1", "Intermediate", 30f, 50f),
+            LevelRange("B2", "Upper-intermediate", 50f, 70f),
+            LevelRange("C1", "Advanced", 70f, 88f),
+            LevelRange("C2", "Mastery", 88f, 100f)
         )
 
         val currentIndex = levels.indexOfFirst { score <= it.max }.coerceAtLeast(0)
