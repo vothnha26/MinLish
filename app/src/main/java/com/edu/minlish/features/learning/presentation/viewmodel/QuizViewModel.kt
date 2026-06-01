@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.edu.minlish.core.util.AppSettings
 import com.edu.minlish.features.auth.domain.repository.AuthRepository
 import com.edu.minlish.features.learning.domain.model.QuestionType
 import com.edu.minlish.features.learning.domain.model.QuizQuestion
@@ -63,7 +64,19 @@ class QuizViewModel(
     private var wordProgressCache:
         Map<String, com.edu.minlish.features.learning.domain.model.UserWordProgress?> = emptyMap()
 
+    init {
+        AppSettings.init(application)
+    }
+
+    /** Đổi intervalUnit (DAYS/HOURS/MINUTES) sang milliseconds. */
+    private fun intervalUnitMs(): Long = when (AppSettings.intervalUnit) {
+        "MINUTES" -> 60L * 1000
+        "HOURS"   -> 60L * 60 * 1000
+        else      -> 24L * 60 * 60 * 1000  // DAYS (mặc định)
+    }
+
     fun loadQuiz(setId: String?, modes: String = "MULTIPLE_CHOICE", questionCount: Int = 10) {
+
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
             uiState = QuizUiState.Error("User not logged in")
@@ -187,7 +200,9 @@ class QuizViewModel(
                 userId = user.id,
                 wordId = question.word.id,
                 setId = question.word.vocabularySetId,
-                correct = correct
+                correct = correct,
+                intervalUnitMs = intervalUnitMs(),
+                masteredThreshold = AppSettings.masteredThreshold
             )
         }
     }

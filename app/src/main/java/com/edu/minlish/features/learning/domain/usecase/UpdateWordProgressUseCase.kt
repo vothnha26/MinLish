@@ -24,7 +24,9 @@ class UpdateWordProgressUseCase(
         userId: String,
         wordId: String,
         setId: String,
-        correct: Boolean
+        correct: Boolean,
+        intervalUnitMs: Long = ONE_DAY_MS,      // đọc từ AppSettings ở ngoài
+        masteredThreshold: Int = 30             // đọc từ AppSettings ở ngoài
     ): Result<Unit> {
         val now = Date()
         val updated = if (existing == null) {
@@ -39,8 +41,8 @@ class UpdateWordProgressUseCase(
                 interval = interval,
                 repetitions = repetitions,
                 lastReviewedAt = now,
-                nextReviewDate = Date(now.time + interval * ONE_DAY_MS),
-                status = if (correct) "learning" else "learning"
+                nextReviewDate = Date(now.time + interval * intervalUnitMs),
+                status = "learning"
             )
         } else {
             // Từ đã có progress — áp dụng SM-2
@@ -64,7 +66,7 @@ class UpdateWordProgressUseCase(
             }
 
             val status = when {
-                rep >= 5 -> "mastered"
+                intv > masteredThreshold -> "mastered"
                 rep >= 1 -> "reviewing"
                 else -> "learning"
             }
@@ -74,7 +76,7 @@ class UpdateWordProgressUseCase(
                 interval = intv,
                 easeFactor = fac,
                 lastReviewedAt = now,
-                nextReviewDate = Date(now.time + intv * ONE_DAY_MS),
+                nextReviewDate = Date(now.time + intv * intervalUnitMs),
                 status = status
             )
         }
