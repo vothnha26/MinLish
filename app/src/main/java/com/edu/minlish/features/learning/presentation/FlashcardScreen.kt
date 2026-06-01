@@ -37,6 +37,7 @@ import com.edu.minlish.core.util.AudioPlayer
 fun FlashcardScreen(
     setId: String? = null,
     onBack: () -> Unit,
+    onPlayQuiz: (String?) -> Unit,
     viewModel: FlashcardViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
@@ -80,7 +81,8 @@ fun FlashcardScreen(
                 is FlashcardUiState.Finished -> {
                     StudyFinishedSession(
                         onBack = onBack,
-                        onReviewAll = { viewModel.loadWords(normalizedSetId, forceAll = true) }
+                        onReviewAll = { viewModel.loadWords(normalizedSetId, forceAll = true) },
+                        onPlayQuiz = { onPlayQuiz(normalizedSetId) }
                     )
                 }
                 is FlashcardUiState.Success -> {
@@ -295,7 +297,8 @@ fun RatingButton(
 @Composable
 fun StudyFinishedSession(
     onBack: () -> Unit,
-    onReviewAll: () -> Unit
+    onReviewAll: () -> Unit,
+    onPlayQuiz: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -308,8 +311,19 @@ fun StudyFinishedSession(
         Spacer(modifier = Modifier.height(32.dp))
         
         Button(
-            onClick = onReviewAll, 
+            onClick = onPlayQuiz, 
             colors = ButtonDefaults.buttonColors(containerColor = Primary),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Play Review Quiz 🎮", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Button(
+            onClick = onReviewAll, 
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F1F1), contentColor = Color(0xFF111111)),
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(12.dp)
         ) {

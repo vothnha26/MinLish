@@ -53,4 +53,16 @@ sealed class Screen(val route: String) {
     
     object Speaking : Screen("speaking")
     object AICreateWordSet : Screen("ai_create_word_set")
+    object QuizGame : Screen("quiz_game?setId={setId}&modes={modes}&count={count}") {
+        const val ARG_SET_ID = "setId"
+        const val ARG_MODES = "modes"
+        const val ARG_COUNT = "count"
+        fun createRoute(setId: String?, modes: String, count: Int) =
+            if (setId != null) "quiz_game?setId=$setId&modes=$modes&count=$count"
+            else "quiz_game?modes=$modes&count=$count"
+    }
+    object GameHub : Screen("game_hub?setId={setId}") {
+        const val ARG_SET_ID = "setId"
+        fun createRoute(setId: String?) = if (setId != null) "game_hub?setId=$setId" else "game_hub"
+    }
 }

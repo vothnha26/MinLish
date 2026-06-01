@@ -471,10 +471,12 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showSaveDialog = false
+                    val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
+                    val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
                     if (notificationsEnabled) {
-                        com.edu.minlish.core.util.NotificationHelper.scheduleDailyReminder(context, reminderTime)
+                        scheduleUseCase.schedule(reminderTime)
                     } else {
-                        com.edu.minlish.core.util.NotificationHelper.cancelDailyReminder(context)
+                        scheduleUseCase.cancel()
                     }
                 }) {
                     Text("OK", color = Color(0xFF111111), fontWeight = FontWeight.Bold)

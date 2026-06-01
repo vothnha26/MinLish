@@ -31,6 +31,8 @@ import com.edu.minlish.features.settings.presentation.SettingsScreen
 import com.edu.minlish.features.stats.presentation.StatsScreen
 import com.edu.minlish.features.learning.presentation.FlashcardScreen
 import com.edu.minlish.features.learning.presentation.WordDetailScreen
+import com.edu.minlish.features.learning.presentation.QuizGameScreen
+import com.edu.minlish.features.learning.presentation.GameHubScreen
 import com.edu.minlish.features.notification.presentation.NotificationListScreen
 import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
 import com.edu.minlish.features.speaking.presentation.SpeakingScreen
@@ -205,6 +207,9 @@ fun MinLishApp() {
                     onPracticeSpeaking = {
                         navController.navigate(Screen.Speaking.route)
                     },
+                    onPlayQuiz = {
+                        navController.navigate(Screen.GameHub.createRoute(null))
+                    },
                     onWordClick = { word ->
                         navController.navigate(Screen.WordDetail.createRoute(word))
                     }
@@ -341,7 +346,12 @@ fun MinLishApp() {
                 val setId = backStackEntry.arguments?.getString(Screen.Flashcard.ARG_SET_ID)
                 FlashcardScreen(
                     setId = setId,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onPlayQuiz = { targetSetId ->
+                        navController.navigate(Screen.GameHub.createRoute(targetSetId)) {
+                            popUpTo(Screen.Home.route)
+                        }
+                    }
                 )
             }
 
@@ -398,6 +408,57 @@ fun MinLishApp() {
             composable(Screen.Speaking.route) {
                 SpeakingScreen(
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Quiz Game Route
+            composable(
+                route = Screen.QuizGame.route,
+                arguments = listOf(
+                    navArgument(Screen.QuizGame.ARG_SET_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument(Screen.QuizGame.ARG_MODES) {
+                        type = NavType.StringType
+                        defaultValue = "MULTIPLE_CHOICE"
+                    },
+                    navArgument(Screen.QuizGame.ARG_COUNT) {
+                        type = NavType.IntType
+                        defaultValue = 10
+                    }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.QuizGame.ARG_SET_ID)
+                val modes = backStackEntry.arguments?.getString(Screen.QuizGame.ARG_MODES) ?: "MULTIPLE_CHOICE"
+                val count = backStackEntry.arguments?.getInt(Screen.QuizGame.ARG_COUNT) ?: 10
+                QuizGameScreen(
+                    setId = setId,
+                    modes = modes,
+                    questionCount = count,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // Game Hub Route
+            composable(
+                route = Screen.GameHub.route,
+                arguments = listOf(
+                    navArgument(Screen.GameHub.ARG_SET_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val setId = backStackEntry.arguments?.getString(Screen.GameHub.ARG_SET_ID)
+                GameHubScreen(
+                    setId = setId,
+                    onBack = { navController.popBackStack() },
+                    onStartGame = { selectedModes, selectedCount ->
+                        navController.navigate(Screen.QuizGame.createRoute(setId, selectedModes, selectedCount))
+                    }
                 )
             }
         }

@@ -35,6 +35,7 @@ import com.edu.minlish.features.home.presentation.viewmodel.HomeViewModel
 fun HomeScreen(
     onStartLearning: () -> Unit,
     onPracticeSpeaking: () -> Unit,
+    onPlayQuiz: () -> Unit,
     onWordClick: (String) -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -204,8 +205,8 @@ fun HomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 MinLishButton(
                     text = "Start learning",
@@ -213,12 +214,21 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f)
                 )
                 MinLishButton(
-                    text = "Practice speaking",
+                    text = "Speaking",
                     onClick = onPracticeSpeaking,
                     modifier = Modifier.weight(1f),
                     containerColor = Primary
                 )
             }
+            MinLishButton(
+                text = "Play Review Game 🎮",
+                onClick = onPlayQuiz,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                containerColor = Color(0xFFF1F1F1),
+                contentColor = Color(0xFF111111)
+            )
 
             // Recently studied word list
             if (uiState.recentWords.isNotEmpty()) {
@@ -335,6 +345,7 @@ fun HomeScreenPreview() {
     HomeScreen(
         onStartLearning = {},
         onPracticeSpeaking = {},
+        onPlayQuiz = {},
         onWordClick = {}
     )
 }

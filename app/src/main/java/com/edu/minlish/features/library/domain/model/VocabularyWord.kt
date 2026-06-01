@@ -21,5 +21,10 @@ data class VocabularyWord(
     val collocations: String = "",
     val personalNote: String = "",
     val imageUrl: String = "",
+    // Spaced repetition fields
+    val interval: Int = 1,
+    val repetition: Int = 0,
+    val easeFactor: Double = 2.5,
+    val nextReview: Long = System.currentTimeMillis(),
     val createdAt: Date = Date()
 )

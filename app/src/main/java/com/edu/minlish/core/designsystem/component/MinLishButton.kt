@@ -42,7 +42,8 @@ fun MinLishButton(
             text = text,
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.SemiBold
-            )
+            ),
+            maxLines = 1
         )
     }
 }
