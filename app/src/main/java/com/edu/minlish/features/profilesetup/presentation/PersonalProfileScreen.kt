@@ -33,6 +33,7 @@ fun PersonalProfileScreen(
     onEditProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToAdminNotifications: () -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
@@ -56,6 +57,9 @@ fun PersonalProfileScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Profile", fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
                     IconButton(onClick = { viewModel.logout(onLogout) }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = Color.Red)
                     }

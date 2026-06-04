@@ -25,6 +25,13 @@ import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 @Composable
 fun SettingsScreen(
@@ -34,8 +41,20 @@ fun SettingsScreen(
     val context = LocalContext.current
     var notificationsEnabled by remember { mutableStateOf(true) }
     var reminderTime by remember { mutableStateOf("09:00 PM") }
-    var showTimeDialog by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
+        val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
+        if (isGranted) {
+            scheduleUseCase.schedule(reminderTime)
+            Toast.makeText(context, "Đã kích hoạt thông báo nhắc học hàng ngày!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Quyền thông báo bị từ chối. Bạn sẽ không nhận được lời nhắc học.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -191,7 +210,47 @@ fun SettingsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = notificationsEnabled) { showTimeDialog = true }
+                            .clickable(enabled = notificationsEnabled) {
+                                // Parse current reminderTime to pre-select hour and minute
+                                val parts = reminderTime.split(":")
+                                val initialHour = if (parts.size == 2) {
+                                    val hourPart = parts[0].toIntOrNull() ?: 9
+                                    val minuteAndAmPm = parts[1].split(" ")
+                                    val minutePart = if (minuteAndAmPm.isNotEmpty()) minuteAndAmPm[0].toIntOrNull() ?: 0 else 0
+                                    val amPmPart = if (minuteAndAmPm.size == 2) minuteAndAmPm[1] else "PM"
+                                    
+                                    var hr = hourPart
+                                    if (amPmPart.equals("PM", ignoreCase = true) && hr < 12) {
+                                        hr += 12
+                                    } else if (amPmPart.equals("AM", ignoreCase = true) && hr == 12) {
+                                        hr = 0
+                                    }
+                                    hr
+                                } else {
+                                    21 // Mặc định 9 PM
+                                }
+                                
+                                val initialMinute = if (parts.size == 2) {
+                                    val minuteAndAmPm = parts[1].split(" ")
+                                    if (minuteAndAmPm.isNotEmpty()) minuteAndAmPm[0].toIntOrNull() ?: 0 else 0
+                                } else {
+                                    0
+                                }
+
+                                android.app.TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        val amPm = if (hourOfDay >= 12) "PM" else "AM"
+                                        var hour = hourOfDay % 12
+                                        if (hour == 0) hour = 12
+                                        val formattedTime = String.format("%02d:%02d %s", hour, minute, amPm)
+                                        reminderTime = formattedTime
+                                    },
+                                    initialHour,
+                                    initialMinute,
+                                    false
+                                ).show()
+                            }
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -424,45 +483,7 @@ fun SettingsScreen(
         }
     }
 
-    // Time Selection Simulator Dialog
-    if (showTimeDialog) {
-        val times = listOf("08:00 AM", "12:00 PM", "06:00 PM", "08:00 PM", "09:00 PM", "10:00 PM")
-        AlertDialog(
-            onDismissRequest = { showTimeDialog = false },
-            confirmButton = {},
-            title = {
-                Text("Select Reminder Time", fontWeight = FontWeight.Bold, color = Color(0xFF111111))
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    times.forEach { time ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    reminderTime = time
-                                    showTimeDialog = false
-                                }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = time, color = Color(0xFF111111), fontSize = 15.sp)
-                            if (reminderTime == time) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(Color(0xFF111111), shape = RoundedCornerShape(100))
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            shape = RoundedCornerShape(12.dp),
-            containerColor = Color.White
-        )
-    }
+
 
     // Save Confirmation Dialog
     if (showSaveDialog) {
@@ -474,7 +495,20 @@ fun SettingsScreen(
                     val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
                     val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
                     if (notificationsEnabled) {
-                        scheduleUseCase.schedule(reminderTime)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            val hasPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            if (hasPermission) {
+                                scheduleUseCase.schedule(reminderTime)
+                            } else {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        } else {
+                            scheduleUseCase.schedule(reminderTime)
+                        }
                     } else {
                         scheduleUseCase.cancel()
                     }

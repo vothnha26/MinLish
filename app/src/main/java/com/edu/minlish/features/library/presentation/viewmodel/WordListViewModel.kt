@@ -11,6 +11,10 @@ import com.edu.minlish.features.library.domain.repository.VocabularyRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+import android.content.Context
+import android.net.Uri
+import com.edu.minlish.features.library.data.exporter.VocabularyExportManager
+
 sealed class WordListUiState {
     object Loading : WordListUiState()
     data class Success(val words: List<VocabularyWord>) : WordListUiState()
@@ -18,10 +22,14 @@ sealed class WordListUiState {
 }
 
 class WordListViewModel(
-    private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl()
+    private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
+    private val exportManager: VocabularyExportManager = VocabularyExportManager()
 ) : ViewModel() {
 
     var uiState by mutableStateOf<WordListUiState>(WordListUiState.Loading)
+        private set
+
+    var exportUiState by mutableStateOf<ExportUiState>(ExportUiState.Idle)
         private set
 
     var masteryPercentage by mutableStateOf(0.0f)
@@ -89,5 +97,25 @@ class WordListViewModel(
                     uiState = WordListUiState.Error(e.message ?: "Failed to load words")
                 }
         }
+    }
+
+    fun startExport(context: Context, uri: Uri) {
+        val state = uiState
+        if (state !is WordListUiState.Success) return
+
+        viewModelScope.launch {
+            exportUiState = ExportUiState.Exporting
+            exportManager.exportToCsv(context, uri, state.words)
+                .onSuccess {
+                    exportUiState = ExportUiState.Success(uri.path?.substringAfterLast('/') ?: "vocabulary.csv")
+                }
+                .onFailure { e ->
+                    exportUiState = ExportUiState.Error(e.message ?: "Failed to export vocabulary")
+                }
+        }
+    }
+
+    fun clearExportState() {
+        exportUiState = ExportUiState.Idle
     }
 }

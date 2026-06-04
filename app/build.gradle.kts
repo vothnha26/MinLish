@@ -48,7 +48,7 @@ android {
         localProperties.load(localPropertiesFile.inputStream())
     }
     val googleClientId = localProperties.getProperty("google.client.id") ?: ""
-    val geminiModel = localProperties.getProperty("gemini.model") ?: "gemini-2.0-flash"
+    val geminiModel = localProperties.getProperty("gemini.model") ?: "gemini-1.5-flash"
 
     buildTypes.all {
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.firebase.ai)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

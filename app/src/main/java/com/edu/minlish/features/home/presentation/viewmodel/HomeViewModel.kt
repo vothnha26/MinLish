@@ -15,7 +15,8 @@ import com.edu.minlish.features.learning.domain.repository.LearningRepository
 import com.edu.minlish.features.profilesetup.data.repository.FirestoreProfileRepositoryImpl
 import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -51,159 +52,112 @@ class HomeViewModel(
     var uiState by mutableStateOf(HomeUiState())
         private set
 
-    private var hasLoadedData = false
-    private var isLoadInProgress = false
-
     init {
-        loadHomeData(showLoading = true)
+        observeSessionData()
     }
 
-    fun loadHomeData(showLoading: Boolean = !hasLoadedData) {
-        if (isLoadInProgress) return
+    private fun observeSessionData() {
+        val currentUser = authRepository.getCurrentUser() ?: return
+        uiState = uiState.copy(isLoading = true)
 
-        val currentUser = authRepository.getCurrentUser()
-        if (currentUser == null) {
-            uiState = uiState.copy(isLoading = false, errorMessage = "User not logged in")
-            return
+        viewModelScope.launch {
+            combine(
+                com.edu.minlish.core.util.SessionDataManager.userProfileFlow,
+                com.edu.minlish.core.util.SessionDataManager.userWordProgressesFlow,
+                com.edu.minlish.core.util.SessionDataManager.userReviewLogsFlow
+            ) { profile, progresses, logs ->
+                Triple(profile, progresses, logs)
+            }.collectLatest { (profile, progresses, logs) ->
+                if (profile != null && progresses != null && logs != null) {
+                    triggerDashboardUpdate(profile, progresses, logs)
+                }
+            }
+        }
+    }
+
+    fun loadHomeData(showLoading: Boolean = false) {
+        val currentUser = authRepository.getCurrentUser() ?: return
+        if (showLoading) {
+            uiState = uiState.copy(isLoading = true)
         }
 
-        val shouldShowLoading = showLoading && !hasLoadedData
-        if (shouldShowLoading) {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
-        } else {
-            uiState = uiState.copy(isLoading = false, errorMessage = null)
+        // Cập nhật UI ngay lập tức từ cache hiện tại
+        val cache = com.edu.minlish.core.util.SessionDataManager
+        val profile = cache.userProfile
+        val progresses = cache.userWordProgresses
+        val logs = cache.userReviewLogs
+        if (profile != null && progresses != null && logs != null) {
+            triggerDashboardUpdate(profile, progresses, logs)
         }
 
-        isLoadInProgress = true
+        // Refresh ở background thông qua SessionDataManager để giữ tính nhất quán
         viewModelScope.launch {
             try {
-                // 1. Get current date string
-                val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.ENGLISH)
-                val dateString = dateFormat.format(Date())
+                com.edu.minlish.core.util.SessionDataManager.preFetchUserData(currentUser.id)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to refresh session data", e)
+            }
+        }
+    }
 
-                // 2. Get user's profile and target limits
-                var targetNew = 10
-                var targetReview = 20
-                profileRepository.getProfile(currentUser.id).onSuccess { profile ->
-                    if (profile != null) {
-                        targetNew = profile.dailyNewWordsTarget
-                        targetReview = profile.dailyReviewWordsTarget
-                    }
-                }
+    private fun triggerDashboardUpdate(
+        profile: com.edu.minlish.features.profilesetup.domain.model.UserProfile,
+        progresses: List<UserWordProgress>,
+        logs: List<UserReviewLog>
+    ) {
+        val currentUser = authRepository.getCurrentUser() ?: return
+        val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.ENGLISH)
+        val dateString = dateFormat.format(Date())
 
-                // 3. Get review logs once and derive today's progress/streak from real data
-                val reviewLogs = try {
-                    loadReviewLogs(currentUser.id)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load review logs for userId=${currentUser.id}: ${e.message}")
-                    emptyList()
-                }
-                val todayLogs = logsForDay(reviewLogs, Date())
-                val todayPlanDone = todayLogs
-                    .map { it.wordId }
-                    .distinct()
-                    .size
-                Log.d(
-                    TAG,
-                    "Today's plan logs userId=${currentUser.id}, totalLogs=${reviewLogs.size}, todayLogs=${todayLogs.size}, todayUniqueWords=$todayPlanDone"
-                )
+        val targetNew = profile.dailyNewWordsTarget
+        val targetReview = profile.dailyReviewWordsTarget
 
-                // 4. Get due words count today
-                var dueTodayCount = 0
-                learningRepository.getDueWords(currentUser.id, setId = null, forceAll = false)
-                    .onSuccess { due ->
-                        dueTodayCount = due.size
-                    }
-                    .onFailure { e ->
-                        Log.e(TAG, "Failed to load due words: ${e.message}")
-                    }
+        val todayLogs = logsForDay(logs, Date())
+        val todayPlanDone = todayLogs.map { it.wordId }.distinct().size
+        val learnedCount = progresses.size
 
-                // 5. Get total learned count and accuracy/retention
-                val progresses = try {
-                    firestore.collection("user_word_progress")
-                        .whereEqualTo("userId", currentUser.id)
-                        .get()
-                        .await()
-                        .toObjects(UserWordProgress::class.java)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load user progress: ${e.message}")
-                    emptyList()
-                }
-                val learnedCount = progresses.size
+        val avgEaseFactor = if (progresses.isNotEmpty()) progresses.map { it.easeFactor }.average() else 0.0
+        val retentionRate = if (progresses.isEmpty()) 100 else (avgEaseFactor / 2.5f * 100).coerceAtMost(100.0).toInt()
 
-                val avgEaseFactor = if (progresses.isNotEmpty()) progresses.map { it.easeFactor }.average() else 0.0
-                val retentionRate = if (progresses.isEmpty()) 100 else (avgEaseFactor / 2.5f * 100).coerceAtMost(100.0).toInt()
+        val streakDays = calculateCurrentStreak(logs)
+        val now = Date()
+        val dueTodayCount = progresses.filter { it.nextReviewDate.before(now) || it.nextReviewDate == now }.size
 
-                // 6. Get recently studied words
-                val recentWords = try {
-                    val recentSnapshot = firestore.collection("user_word_progress")
-                        .whereEqualTo("userId", currentUser.id)
-                        .orderBy("lastReviewedAt", Query.Direction.DESCENDING)
-                        .limit(3)
-                        .get()
-                        .await()
+        uiState = HomeUiState(
+            dateString = dateString,
+            userName = currentUser.fullName ?: "User",
+            streakDays = streakDays,
+            learnedCount = learnedCount,
+            dueTodayCount = dueTodayCount,
+            accuracy = "$retentionRate%",
+            todayPlanDone = todayPlanDone,
+            todayPlanTotal = targetNew + targetReview,
+            recentWords = uiState.recentWords,
+            isLoading = false
+        )
 
-                    recentSnapshot.documents.mapNotNull { doc ->
+        loadRecentWordsAsync(currentUser.id, progresses)
+    }
+
+    private fun loadRecentWordsAsync(userId: String, progresses: List<UserWordProgress>) {
+        viewModelScope.launch {
+            try {
+                val recentWords = progresses.sortedByDescending { it.lastReviewedAt }
+                    .take(3)
+                    .mapNotNull { progress ->
                         try {
-                            val progress = doc.toObject(UserWordProgress::class.java) ?: return@mapNotNull null
-
-                            // Fetch the word details
                             val wordDoc = firestore.collection("vocabulary_words").document(progress.wordId).get().await()
                             val word = wordDoc.getString("word") ?: ""
-
-                            // Parse Vietnamese meaning
                             val definitionsData = (wordDoc.get("definitions") as? List<*>)?.filterIsInstance<Map<String, Any>>() ?: emptyList()
                             val meaning = definitionsData.firstOrNull()?.get("meaningVietnamese") as? String ?: ""
-
                             RecentWordItem(id = progress.wordId, word = word, meaning = meaning)
                         } catch (e: Exception) {
                             null
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load recently studied words: ${e.message}")
-                    emptyList()
-                }
-
-                // 7. Calculate current streak from real review logs
-                val streakDays = try {
-                    calculateCurrentStreak(reviewLogs)
-                } catch (e: Exception) {
-                    0
-                }
-
-                uiState = HomeUiState(
-                    dateString = dateString,
-                    userName = currentUser.fullName ?: "User",
-                    streakDays = streakDays,
-                    learnedCount = learnedCount,
-                    dueTodayCount = dueTodayCount,
-                    accuracy = "$retentionRate%",
-                    todayPlanDone = todayPlanDone,
-                    todayPlanTotal = targetNew + targetReview,
-                    recentWords = recentWords,
-                    isLoading = false
-                )
-                hasLoadedData = true
+                uiState = uiState.copy(recentWords = recentWords)
             } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.message ?: "Failed to load dashboard data")
-            } finally {
-                isLoadInProgress = false
-            }
-        }
-    }
-
-    private suspend fun loadReviewLogs(userId: String): List<UserReviewLog> {
-        val snapshot = firestore.collection("user_review_logs")
-            .whereEqualTo("userId", userId)
-            .get()
-            .await()
-
-        return snapshot.documents.mapNotNull { doc ->
-            try {
-                doc.toObject(UserReviewLog::class.java)?.copy(id = doc.id)
-            } catch (e: Exception) {
-                null
+                Log.e(TAG, "Failed to load recent words asynchronously", e)
             }
         }
     }

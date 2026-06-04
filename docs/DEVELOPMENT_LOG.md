@@ -114,6 +114,9 @@ Thay vì gọi trực tiếp Firebase ở mọi nơi, chúng ta dùng **Reposito
 | **Crash khi click Skip/Login**          | `GoogleSignInOptions` gặp lỗi `IllegalArgumentException` do truyền Client ID trống. Xử lý bằng cách kiểm tra `BuildConfig.GOOGLE_CLIENT_ID.isNotBlank()` trước khi gọi `requestIdToken`. |
 | **Lỗi overriding default parameter**    | Trình biên dịch báo lỗi do chỉ định giá trị mặc định cho tham số trong hàm ghi đè `getDailySessionWords`. Sửa bằng cách xóa giá trị `= null` ở file triển khai Repo Impl. |
 | **Lỗi thiếu thư viện WorkManager**      | Thêm định nghĩa và phiên bản `work = "2.9.0"` vào `libs.versions.toml`, đồng thời khai báo dependency `androidx.work` trong file `build.gradle.kts`. |
+| **Lỗi kết nối Vertex AI (gemini 2.0)**  | Mô hình `gemini-2.0-flash` chưa được hỗ trợ tốt hoặc chưa kích hoạt ở vùng cloud của dự án. Khắc phục bằng cách đổi sang mô hình ổn định `gemini-1.5-flash` trong `local.properties` và build.gradle. |
+| **Lỗi Cache/Đồng bộ UI (Home/Stats)**   | Ghi đè cache thô trong `HomeViewModel` và không cập nhật Stats khi quay lại. Khắc phục bằng cách viết lại cache dạng **Reactive** (`StateFlow` + SnapshotListener toàn cục ở `SessionDataManager`), ViewModels tự động lắng nghe Flow để cập nhật UI tức thời. |
+| **Lỗi AI Speaking tự chế thoại**       | Nhiễu click START/STOP khi ghi âm khiến AI nhận dạng giọng nói ảo. Sửa bằng cách thêm `delay(350)` khi poll amplitude (lọc nút bấm START) và tăng số lượng `sampleCount` tối thiểu từ `5` lên `8` để lọc tiếng chạm ngón tay tắt mic. |
 
 ---
 
@@ -125,4 +128,4 @@ Thay vì gọi trực tiếp Firebase ở mọi nơi, chúng ta dùng **Reposito
 
 ---
 
-_Cập nhật lần cuối: 30/05/2026_
+_Cập nhật lần cuối: 04/06/2026_

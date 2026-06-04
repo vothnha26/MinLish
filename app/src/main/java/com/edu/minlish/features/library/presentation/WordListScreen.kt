@@ -30,6 +30,12 @@ import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.presentation.viewmodel.WordListViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.WordListUiState
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.edu.minlish.features.library.presentation.viewmodel.ExportUiState
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.ui.platform.LocalContext
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WordListScreen(
@@ -42,7 +48,16 @@ fun WordListScreen(
     viewModel: WordListViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
+    val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.startExport(context, uri)
+        }
+    }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner, setId) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -66,6 +81,15 @@ fun WordListScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                            val fileName = "MinLish_${viewModel.vocabularySet?.title?.replace(" ", "_") ?: "Set"}_$timestamp.csv"
+                            exportLauncher.launch(fileName)
+                        }
+                    ) {
+                        Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Export", tint = Primary)
+                    }
                     TextButton(onClick = { onEditSetClick(setId) }) {
                         Text("Edit", color = Primary, fontWeight = FontWeight.SemiBold)
                     }
@@ -174,6 +198,81 @@ fun WordListScreen(
                     }
                 }
             }
+        }
+    }
+
+    ExportVocabularyDialog(
+        exportState = viewModel.exportUiState,
+        onDismiss = { viewModel.clearExportState() }
+    )
+}
+
+@Composable
+private fun ExportVocabularyDialog(
+    exportState: ExportUiState,
+    onDismiss: () -> Unit
+) {
+    when (exportState) {
+        ExportUiState.Idle -> Unit
+        ExportUiState.FetchingData -> {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Preparing Data", fontWeight = FontWeight.Bold) },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = Primary, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Fetching vocabulary...")
+                    }
+                },
+                confirmButton = {},
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        ExportUiState.Exporting -> {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Exporting", fontWeight = FontWeight.Bold) },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = Primary, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Writing CSV file...")
+                    }
+                },
+                confirmButton = {},
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        is ExportUiState.Success -> {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("Export successful", fontWeight = FontWeight.Bold) },
+                text = { Text("Vocabulary data has been exported to ${exportState.fileName}") },
+                confirmButton = {
+                    TextButton(onClick = onDismiss) {
+                        Text("OK", color = Primary, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+        is ExportUiState.Error -> {
+            AlertDialog(
+                onDismissRequest = onDismiss,
+                title = { Text("Export failed", fontWeight = FontWeight.Bold) },
+                text = { Text(exportState.message, color = Color(0xFFD32F2F)) },
+                confirmButton = {
+                    TextButton(onClick = onDismiss) {
+                        Text("OK", color = Primary, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }

@@ -1,3 +1,0 @@
-models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent..."
-
-otlinx.serialization.MissingFieldException: Field 'details' is required for type with serial name 'com.google.ai.client.generativeai.common.server.GRpcError', but it was missing at path: $.error

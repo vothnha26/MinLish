@@ -77,6 +77,15 @@ class AuthViewModel(
 
             result.onSuccess { profile ->
                 val isSetupComplete = profile != null && profile.learningGoal.isNotEmpty()
+                if (isSetupComplete) {
+                    viewModelScope.launch {
+                        try {
+                            com.edu.minlish.core.util.SessionDataManager.preFetchUserData(user.id)
+                        } catch (e: Exception) {
+                            // Bỏ qua lỗi pre-fetch để không gián đoạn chuyển hướng
+                        }
+                    }
+                }
                 uiState = AuthUiState.Success(user, isSetupComplete)
                 onNavigate(isSetupComplete)
             }.onFailure {

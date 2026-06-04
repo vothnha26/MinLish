@@ -134,6 +134,22 @@ class FlashcardViewModel(
                 }
                 Log.d(TAG, "Saved review log to user_review_logs for wordId=${word.id}, rating=$ratingStr")
 
+                // ✅ Cập nhật local cache ngay lập tức — không chờ Firestore listener round-trip
+                // HomeViewModel đọc từ SessionDataManager, nên Home sẽ hiển thị đúng ngay khi quay lại.
+                val sessionCache = com.edu.minlish.core.util.SessionDataManager
+                val currentLogs = sessionCache.userReviewLogs?.toMutableList() ?: mutableListOf()
+                currentLogs.add(log)
+                sessionCache.userReviewLogs = currentLogs
+
+                val currentProgresses = sessionCache.userWordProgresses?.toMutableList() ?: mutableListOf()
+                val existingIndex = currentProgresses.indexOfFirst { it.wordId == updatedProgress.wordId }
+                if (existingIndex >= 0) {
+                    currentProgresses[existingIndex] = updatedProgress
+                } else {
+                    currentProgresses.add(updatedProgress)
+                }
+                sessionCache.userWordProgresses = currentProgresses
+
                 if (rating == 0) {
                     isFlipped = false
                     Log.d(TAG, "Keeping wordId=${word.id} on current card after Again rating")

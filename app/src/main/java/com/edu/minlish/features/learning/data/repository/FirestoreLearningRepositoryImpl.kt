@@ -82,9 +82,9 @@ class FirestoreLearningRepositoryImpl(
                         .set(progress, SetOptions.merge())
                         .await()
                 } else {
-                    firestore.collection("user_word_progress")
-                        .add(progress)
-                        .await()
+                    val docRef = firestore.collection("user_word_progress").document()
+                    val progressWithId = progress.copy(id = docRef.id)
+                    docRef.set(progressWithId).await()
                 }
             }
             Result.success(Unit)

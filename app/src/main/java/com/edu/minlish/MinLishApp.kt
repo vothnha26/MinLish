@@ -27,6 +27,7 @@ import com.edu.minlish.features.library.presentation.CreateWordSetScreen
 import com.edu.minlish.features.library.presentation.AICreateWordSetScreen
 import com.edu.minlish.features.library.presentation.AddWordScreen
 import com.edu.minlish.features.library.presentation.WordListScreen
+import com.edu.minlish.features.library.presentation.TranslateAndLookupScreen
 import com.edu.minlish.features.settings.presentation.SettingsScreen
 import com.edu.minlish.features.stats.presentation.StatsScreen
 import com.edu.minlish.features.learning.presentation.FlashcardScreen
@@ -48,10 +49,20 @@ fun MinLishApp() {
         Screen.Home.route,
         Screen.Library.route,
         Screen.Stats.route,
-        Screen.PersonalProfile.route
+        Screen.PersonalProfile.route,
+        Screen.TranslateAndLookup.route,
+        Screen.WordList.route,
+        Screen.WordDetail.route
     )
 
-    val shouldShowBottomBar = currentRoute in showBottomBarRoutes
+    val shouldShowBottomBar = currentRoute != null && showBottomBarRoutes.any { route ->
+        if (route.contains("{")) {
+            val baseRoute = route.substringBefore("{")
+            currentRoute.startsWith(baseRoute)
+        } else {
+            currentRoute == route
+        }
+    }
     
     Scaffold(
         bottomBar = {
@@ -194,6 +205,9 @@ fun MinLishApp() {
                     },
                     onNavigateToAdminNotifications = {
                         navController.navigate(Screen.AdminNotifications.route)
+                    },
+                    onSettingsClick = {
+                        navController.navigate(Screen.Settings.route)
                     }
                 )
             }
@@ -212,6 +226,9 @@ fun MinLishApp() {
                     },
                     onWordClick = { word ->
                         navController.navigate(Screen.WordDetail.createRoute(word))
+                    },
+                    onNavigateToTranslate = {
+                        navController.navigate(Screen.TranslateAndLookup.route)
                     }
                 )
             }
@@ -313,11 +330,7 @@ fun MinLishApp() {
 
             // Stats Screen Route
             composable(Screen.Stats.route) {
-                StatsScreen(
-                    onSettingsClick = {
-                        navController.navigate(Screen.Settings.route)
-                    }
-                )
+                StatsScreen()
             }
 
             // Settings Screen Route
@@ -459,6 +472,13 @@ fun MinLishApp() {
                     onStartGame = { selectedModes, selectedCount ->
                         navController.navigate(Screen.QuizGame.createRoute(setId, selectedModes, selectedCount))
                     }
+                )
+            }
+
+            // Translate And Lookup Route
+            composable(Screen.TranslateAndLookup.route) {
+                TranslateAndLookupScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

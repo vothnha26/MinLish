@@ -8,6 +8,9 @@ import com.edu.minlish.MinLishApp
 import com.edu.minlish.core.designsystem.theme.MinLishTheme
 
 import com.edu.minlish.core.util.AudioPlayer
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -18,6 +21,19 @@ class MainActivity : ComponentActivity() {
         
         // Initialize App Settings
         com.edu.minlish.core.util.AppSettings.init(this)
+        
+        // Pre-fetch user data if already logged in (Auto-login)
+        val firebaseAuth = FirebaseAuth.getInstance()
+        val currentUser = firebaseAuth.currentUser
+        if (currentUser != null) {
+            lifecycleScope.launch {
+                try {
+                    com.edu.minlish.core.util.SessionDataManager.preFetchUserData(currentUser.uid)
+                } catch (e: Exception) {
+                    // Ignore background load failures
+                }
+            }
+        }
         
         enableEdgeToEdge()
         setContent {

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.navigation.Screen
 import com.edu.minlish.core.designsystem.theme.Border
+import com.edu.minlish.core.designsystem.theme.Primary
 
 data class TabItem(val screen: Screen, val icon: ImageVector, val label: String)
 
@@ -40,18 +41,34 @@ fun MinLishBottomNav(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
+            .navigationBarsPadding()
     ) {
         HorizontalDivider(color = Border, thickness = 1.dp)
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
+                .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { tab ->
-                val isActive = currentRoute == tab.screen.route
+                val isActive = when (tab.screen) {
+                    Screen.Home -> currentRoute == Screen.Home.route
+                    Screen.Stats -> currentRoute == Screen.Stats.route
+                    Screen.PersonalProfile -> currentRoute == Screen.PersonalProfile.route || currentRoute == Screen.Settings.route
+                    Screen.Library -> {
+                        currentRoute == Screen.Library.route ||
+                        currentRoute?.startsWith("word_list/") == true ||
+                        currentRoute?.startsWith("word_detail/") == true ||
+                        currentRoute?.startsWith("add_word/") == true ||
+                        currentRoute?.startsWith("edit_word/") == true ||
+                        currentRoute == Screen.TranslateAndLookup.route ||
+                        currentRoute == Screen.CreateWordSet.route ||
+                        currentRoute == Screen.AICreateWordSet.route
+                    }
+                    else -> false
+                }
                 
                 Column(
                     modifier = Modifier
@@ -64,16 +81,26 @@ fun MinLishBottomNav(
                     Icon(
                         imageVector = tab.icon,
                         contentDescription = tab.label,
-                        tint = if (isActive) Color(0xFF111111) else Color(0xFFAAAAAA),
+                        tint = if (isActive) Primary else Color(0xFFAAAAAA),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = tab.label,
-                        color = if (isActive) Color(0xFF111111) else Color(0xFFAAAAAA),
+                        color = if (isActive) Primary else Color(0xFFAAAAAA),
                         fontSize = 10.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
                     )
+                    if (isActive) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(Primary, shape = androidx.compose.foundation.shape.CircleShape)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(6.dp)) // Maintain height layout consistency
+                    }
                 }
             }
         }

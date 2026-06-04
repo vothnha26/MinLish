@@ -66,7 +66,7 @@ class GeminiAIService(
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGenerativeException(e))
         }
     }
 
@@ -113,7 +113,7 @@ class GeminiAIService(
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGenerativeException(e))
         }
     }
 
@@ -141,7 +141,7 @@ class GeminiAIService(
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGenerativeException(e))
         }
     }
 
@@ -174,18 +174,28 @@ class GeminiAIService(
                     $historyStr
                     
                     TASK:
-                    1. Listen to the user's latest audio response (the attached audio).
-                    2. Transcribe the audio word-for-word (`transcript`). Do not correct grammar or clean up stuttering in the transcript.
-                    3. Generate a friendly, natural reply in English reacting to the user's answer (`reply`).
-                    4. Generate the next logical question in English to keep the conversation flowing (`nextQuestion`).
-                    5. Provide a short, constructive feedback in Vietnamese about their grammar, vocabulary, or pronunciation for this specific turn (`turnFeedback`).
+                    1. SILENCE DETECTION (CRITICAL — do this FIRST):
+                       Listen carefully to the attached audio. If ANY of these conditions apply:
+                       - The audio is completely silent or nearly silent
+                       - You can only hear background noise, hiss, or ambient sounds
+                       - There is no recognizable human voice or spoken English words
+                       - The speech is completely unintelligible
+                       Then you MUST respond with this exact JSON and NOTHING else:
+                       {"transcript": "SILENCE_DETECTED", "reply": "", "nextQuestion": "", "turnFeedback": ""}
+                       DO NOT attempt to guess, invent, or hallucinate any spoken content.
+                    
+                    2. If and only if clear spoken English is detected:
+                       - Transcribe the audio word-for-word into "transcript". Do not correct grammar or clean up stuttering.
+                       - Generate a friendly, natural reply in English reacting to the user's answer ("reply").
+                       - Generate the next logical question in English to keep the conversation flowing ("nextQuestion").
+                       - Provide a short, constructive feedback in Vietnamese about their grammar, vocabulary, or pronunciation ("turnFeedback").
                     
                     Return the result in strictly valid JSON format without markdown wrapping:
                     {
-                      "transcript": "Exact transcription of user's audio",
-                      "reply": "Friendly response in English",
-                      "nextQuestion": "The next question to ask",
-                      "turnFeedback": "Gợi ý/nhận xét nhanh bằng tiếng Việt"
+                      "transcript": "Exact transcription OR SILENCE_DETECTED",
+                      "reply": "Friendly response in English (empty if silence)",
+                      "nextQuestion": "The next question to ask (empty if silence)",
+                      "turnFeedback": "Gợi ý bằng tiếng Việt (empty if silence)"
                     }
                 """.trimIndent())
             }
@@ -194,7 +204,7 @@ class GeminiAIService(
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGenerativeException(e))
         }
     }
 
@@ -265,7 +275,125 @@ class GeminiAIService(
             val text = response.text ?: throw Exception("Empty response from AI")
             Result.success(text.trim())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(mapGenerativeException(e))
+        }
+    }
+
+    suspend fun translateText(text: String, sourceLang: String = "en", targetLang: String = "vi"): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val prompt = """
+                Bạn là một dịch giả chuyên nghiệp. Hãy dịch văn bản sau từ ngôn ngữ $sourceLang sang ngôn ngữ $targetLang.
+                Yêu cầu: Bản dịch tự nhiên, mượt mà, đúng ngữ cảnh và giữ nguyên định dạng của văn bản gốc.
+                Chỉ trả về duy nhất bản dịch, không thêm giải thích hay lời nói đầu nào.
+                
+                Văn bản cần dịch:
+                $text
+            """.trimIndent()
+            
+            val response = textModel.generateContent(prompt)
+            val textResponse = response.text ?: throw Exception("Empty response from AI")
+            Result.success(textResponse.trim())
+        } catch (e: Exception) {
+            Result.failure(mapGenerativeException(e))
+        }
+    }
+
+    suspend fun lookupWordDetail(word: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val prompt = """
+                Bạn là một từ điển Anh-Việt thông minh. Hãy tra cứu và phân tích chi tiết từ tiếng Anh: "$word".
+                Yêu cầu kết quả bao gồm: Phiên âm IPA chuẩn, từ loại, nghĩa tiếng Việt chính xác, định nghĩa bằng tiếng Anh rõ ràng, ví dụ cụ thể có dịch nghĩa, danh sách từ đồng nghĩa và trái nghĩa, các collocations phổ biến và một mẹo/ghi chú ghi nhớ từ vựng này bằng tiếng Việt.
+                
+                Yêu cầu bắt buộc: Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc sau, KHÔNG ĐƯỢC có các thẻ markdown bao quanh:
+                {
+                  "word": "$word",
+                  "pronunciation": "...",
+                  "definitions": [
+                    {
+                      "pos": "Noun/Verb/Adjective/...",
+                      "meaningVietnamese": "nghĩa tiếng Việt chính",
+                      "definitionEnglish": "Định nghĩa tiếng Anh rõ ràng",
+                      "exampleSentence": "Ví dụ tiếng Anh (Dịch nghĩa tiếng Việt)",
+                      "synonyms": ["đồng nghĩa 1", "đồng nghĩa 2"],
+                      "antonyms": ["trái nghĩa 1", "trái nghĩa 2"]
+                    }
+                  ],
+                  "collocations": "Cụm từ đi kèm phổ biến",
+                  "personalNote": "Ghi chú/Mẹo nhớ từ vựng này bằng tiếng Việt"
+                }
+            """.trimIndent()
+            
+            val response = textModel.generateContent(prompt)
+            val textResponse = response.text ?: throw Exception("Empty response from AI")
+            Result.success(textResponse.trim())
+        } catch (e: Exception) {
+            Result.failure(mapGenerativeException(e))
+        }
+    }
+
+    suspend fun translateAndExtractVocabulary(
+        text: String,
+        sourceLang: String = "en",
+        targetLang: String = "vi"
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val prompt = """
+                Bạn là một trợ lý dịch thuật và giảng dạy tiếng Anh thông minh.
+                Hãy thực hiện hai nhiệm vụ sau cho đoạn văn dưới đây:
+                Đoạn văn: "$text"
+                
+                Nhiệm vụ:
+                1. Dịch đoạn văn từ $sourceLang sang $targetLang. Bản dịch phải tự nhiên, mượt mà, đúng ngữ cảnh.
+                2. Phân tích và trích xuất từ 3 đến 5 từ vựng nổi bật hoặc quan trọng từ đoạn văn (những từ khó, từ khóa chính hoặc collocations hữu ích). Với mỗi từ trích xuất, cung cấp: từ vựng tiếng Anh, phiên âm IPA, từ loại, nghĩa tiếng Việt, định nghĩa ngắn bằng tiếng Anh, câu ví dụ chính trong đoạn văn hoặc câu ví dụ mới, collocations liên quan và một ghi chú ghi nhớ ngắn.
+                
+                Yêu cầu bắt buộc: Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc sau, KHÔNG ĐƯỢC có các thẻ markdown bao quanh:
+                {
+                  "translatedText": "Bản dịch đoạn văn...",
+                  "extractedWords": [
+                    {
+                      "word": "từ_vựng",
+                      "pronunciation": "phiên_âm_IPA",
+                      "definitions": [
+                        {
+                          "pos": "Noun/Verb/Adjective/...",
+                          "meaningVietnamese": "nghĩa tiếng Việt",
+                          "definitionEnglish": "English definition",
+                          "exampleSentence": "Câu ví dụ trong ngữ cảnh",
+                          "synonyms": ["từ đồng nghĩa"],
+                          "antonyms": ["từ trái nghĩa"]
+                        }
+                      ],
+                      "collocations": "cụm từ đi kèm nếu có",
+                      "personalNote": "ghi chú/giải thích ngắn về từ trong ngữ cảnh"
+                    }
+                  ]
+                }
+            """.trimIndent()
+            
+            val response = textModel.generateContent(prompt)
+            val textResponse = response.text ?: throw Exception("Empty response from AI")
+            Result.success(textResponse.trim())
+        } catch (e: Exception) {
+            Result.failure(mapGenerativeException(e))
+        }
+    }
+
+    private fun mapGenerativeException(e: Exception): Exception {
+        val msg = e.message ?: ""
+        val errorString = e.toString()
+        return if (msg.contains("MissingFieldException") || 
+            msg.contains("GRpcError") || 
+            msg.contains("details") ||
+            errorString.contains("MissingFieldException") ||
+            errorString.contains("GRpcError")
+        ) {
+            Exception(
+                "Lỗi kết nối Vertex AI: Máy chủ trả về phản hồi không hợp lệ hoặc mô hình không được hỗ trợ. " +
+                "Vui lòng kiểm tra lại cấu hình 'gemini.model' trong local.properties, file google-services.json hoặc kết nối mạng.",
+                e
+            )
+        } else {
+            e
         }
     }
 }

@@ -32,7 +32,13 @@ object AudioPlayer : TextToSpeech.OnInitListener {
     }
 
     fun play(url: String, fallbackWord: String = "") {
-        if (url.isNotBlank()) {
+        val playUrl = if (url.isBlank() && fallbackWord.isNotBlank()) {
+            "https://dict.youdao.com/dictvoice?audio=${fallbackWord.trim().lowercase()}&type=2"
+        } else {
+            url
+        }
+
+        if (playUrl.isNotBlank()) {
             // Play from URL
             try {
                 mediaPlayer?.release()
@@ -43,7 +49,7 @@ object AudioPlayer : TextToSpeech.OnInitListener {
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .build()
                     )
-                    setDataSource(url)
+                    setDataSource(playUrl)
                     prepareAsync()
                     setOnPreparedListener { start() }
                     setOnErrorListener { _, what, extra ->

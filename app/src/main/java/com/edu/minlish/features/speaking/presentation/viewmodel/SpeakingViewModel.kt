@@ -41,6 +41,7 @@ class SpeakingViewModel(context: Context) : ViewModel(), TextToSpeech.OnInitList
     private val audioRecorder = AudioRecorder(context)
     private var tts: TextToSpeech? = null
     private var isTtsInitialized = false
+    private var recordStartTime = 0L
 
     var uiState by mutableStateOf<SpeakingUiState>(SpeakingUiState.TopicSelection)
         private set
@@ -173,6 +174,7 @@ class SpeakingViewModel(context: Context) : ViewModel(), TextToSpeech.OnInitList
             val started = audioRecorder.startRecording()
             if (started) {
                 isRecording = true
+                recordStartTime = System.currentTimeMillis()
                 uiState = SpeakingUiState.SessionActive
             } else {
                 uiState = SpeakingUiState.Error("Không thể bắt đầu ghi âm. Hãy kiểm tra quyền Microphone.")
@@ -182,9 +184,51 @@ class SpeakingViewModel(context: Context) : ViewModel(), TextToSpeech.OnInitList
 
     private fun stopRecordingAndAnalyze() {
         isRecording = false
+        val duration = System.currentTimeMillis() - recordStartTime
         val file = audioRecorder.stopRecording()
+        
         if (file == null || !file.exists()) {
             uiState = SpeakingUiState.Error("Lỗi ghi âm: File không tồn tại")
+            return
+        }
+
+        if (duration < 1000) {
+            uiState = SpeakingUiState.Error("Thời gian nói quá ngắn (tối thiểu 1 giây). Vui lòng thử lại!")
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(2000)
+                if (uiState is SpeakingUiState.Error) {
+                    uiState = SpeakingUiState.SessionActive
+                }
+            }
+            try { file.delete() } catch(e: Exception) {}
+            return
+        }
+
+        val sampleCount = audioRecorder.getAboveThresholdSampleCount()
+        if (sampleCount < 8) {
+            // Cần ít nhất 8 samples (400ms) vượt ngưỡng amplitude → có giọng nói thật
+            uiState = SpeakingUiState.Error("Không nghe rõ giọng nói. Vui lòng nói to rõ hơn và thử lại!")
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(2500)
+                if (uiState is SpeakingUiState.Error) {
+                    uiState = SpeakingUiState.SessionActive
+                }
+            }
+            try { file.delete() } catch(e: Exception) {}
+            return
+        }
+
+        // Kiểm tra kích thước file - file quá nhỏ (< 10KB) thường là im lặng hoàn toàn
+        val fileSizeKb = file.length() / 1024
+        if (fileSizeKb < 10) {
+            uiState = SpeakingUiState.Error("Không ghi âm được giọng nói. Vui lòng kiểm tra microphone!")
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(2500)
+                if (uiState is SpeakingUiState.Error) {
+                    uiState = SpeakingUiState.SessionActive
+                }
+            }
+            try { file.delete() } catch(e: Exception) {}
             return
         }
 
@@ -217,6 +261,31 @@ class SpeakingViewModel(context: Context) : ViewModel(), TextToSpeech.OnInitList
                         }
 
                         val aiTurn = Gson().fromJson(cleanJson, AITurnResponse::class.java)
+
+                        // Kiểm tra nếu transcript trống hoặc là hallucination của AI
+                        val transcriptTrimmed = aiTurn.transcript.trim()
+                        val isSilenceOrHallucination = transcriptTrimmed.isBlank() ||
+                            transcriptTrimmed == "SILENCE_DETECTED" || // sentinel từ Gemini
+                            transcriptTrimmed == "..." ||
+                            transcriptTrimmed.length < 3 ||
+                            transcriptTrimmed.contains("[silence]", ignoreCase = true) ||
+                            transcriptTrimmed.contains("[no audio]", ignoreCase = true) ||
+                            transcriptTrimmed.contains("[inaudible]", ignoreCase = true) ||
+                            transcriptTrimmed.contains("[không nói]", ignoreCase = true) ||
+                            transcriptTrimmed.contains("[tiếng ồn]", ignoreCase = true) ||
+                            transcriptTrimmed.contains("[ambient]", ignoreCase = true) ||
+                            transcriptTrimmed.matches(Regex("^[.\\s,!?…]+$")) // chỉ toàn dấu câu/khoảng trắng
+
+                        if (isSilenceOrHallucination) {
+                            uiState = SpeakingUiState.Error("Không nghe rõ giọng nói. Vui lòng nói to rõ hơn và thử lại!")
+                            viewModelScope.launch {
+                                kotlinx.coroutines.delay(2500)
+                                if (uiState is SpeakingUiState.Error) {
+                                    uiState = SpeakingUiState.SessionActive
+                                }
+                            }
+                            return@onSuccess
+                        }
 
                         // Add User's transcribed message
                         chatMessages.add(

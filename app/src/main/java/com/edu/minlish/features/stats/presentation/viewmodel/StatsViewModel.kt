@@ -1,5 +1,6 @@
 package com.edu.minlish.features.stats.presentation.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,6 +15,10 @@ import com.edu.minlish.features.stats.domain.LevelEstimate
 import com.edu.minlish.features.stats.domain.LevelEstimator
 import com.edu.minlish.features.stats.presentation.components.BarChartData
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -31,6 +36,13 @@ data class RatingBreakdownCounts(
         get() = easy + good + hard + again
 }
 
+data class RatedWordItem(
+    val wordId: String,
+    val word: String,
+    val meaning: String,
+    val lastRatedAt: Date
+)
+
 sealed class StatsUiState {
     object Loading : StatsUiState()
 
@@ -46,7 +58,8 @@ sealed class StatsUiState {
         val weeklyActiveIndex: Int,
         val weeklyCompletedDays: List<Boolean>,
         val monthlyData: List<BarChartData>,
-        val levelEstimate: LevelEstimate
+        val levelEstimate: LevelEstimate,
+        val wordsByRating: Map<String, List<RatedWordItem>> = emptyMap()
     ) : StatsUiState() {
         val easyCount: Int get() = ratingBreakdown.easy
         val goodCount: Int get() = ratingBreakdown.good
@@ -66,7 +79,28 @@ class StatsViewModel(
         private set
 
     init {
-        loadStats()
+        observeSessionData()
+    }
+
+    private fun observeSessionData() {
+        val currentUser = authRepository.getCurrentUser()
+        if (currentUser == null) {
+            uiState = StatsUiState.Error("User not logged in")
+            return
+        }
+
+        viewModelScope.launch {
+            combine(
+                com.edu.minlish.core.util.SessionDataManager.userWordProgressesFlow,
+                com.edu.minlish.core.util.SessionDataManager.userReviewLogsFlow
+            ) { progresses, logs ->
+                Pair(progresses, logs)
+            }.collectLatest { (progresses, logs) ->
+                if (progresses != null && logs != null) {
+                    calculateStats(progresses, logs)
+                }
+            }
+        }
     }
 
     fun loadStats() {
@@ -76,82 +110,123 @@ class StatsViewModel(
             return
         }
 
+        // Tải lại ở background thông qua SessionDataManager để giữ tính nhất quán
         viewModelScope.launch {
-            uiState = StatsUiState.Loading
             try {
-                val progressSnapshot = firestore.collection("user_word_progress")
-                    .whereEqualTo("userId", currentUser.id)
-                    .get()
-                    .await()
-
-                val progresses = progressSnapshot.toObjects(UserWordProgress::class.java)
-                val logs = loadReviewLogs(currentUser.id)
-
-                val masteredThreshold = AppSettings.masteredThreshold
-                val totalWords = progresses.size
-                val masteredWords = progresses.count {
-                    it.status == "mastered" || it.interval > masteredThreshold
-                }
-                val learningWords = totalWords - masteredWords
-                val now = Date()
-                val dueTodayWords = progresses.count {
-                    it.nextReviewDate.before(now) || it.nextReviewDate == now
-                }
-
-                val ratingBreakdown = buildRatingBreakdown(logs)
-                val retentionRate = calculateRetentionRate(logs, progresses)
-                val weeklyData = buildWeeklyData(logs)
-                val weeklyCompletedDays = weeklyData.map { it.value > 0 }
-                val monthlyData = buildMonthlyData(logs)
-                val currentStreak = calculateCurrentStreak(logs)
-                val activeDaysLast7 = weeklyCompletedDays.count { it }
-                val levelEstimate = LevelEstimator.estimate(
-                    totalWords = totalWords,
-                    masteredWords = masteredWords,
-                    retentionRate = retentionRate,
-                    activeDaysLast7 = activeDaysLast7
-                )
-
-                uiState = StatsUiState.Success(
-                    totalWords = totalWords,
-                    masteredWords = masteredWords,
-                    learningWords = learningWords,
-                    dueTodayWords = dueTodayWords,
-                    retentionRate = retentionRate,
-                    ratingBreakdown = ratingBreakdown,
-                    currentStreak = currentStreak,
-                    weeklyData = weeklyData,
-                    weeklyActiveIndex = weeklyData.lastIndex.coerceAtLeast(0),
-                    weeklyCompletedDays = weeklyCompletedDays,
-                    monthlyData = monthlyData,
-                    levelEstimate = levelEstimate
-                )
+                com.edu.minlish.core.util.SessionDataManager.preFetchUserData(currentUser.id)
             } catch (e: Exception) {
-                uiState = StatsUiState.Error(e.message ?: "Failed to load stats")
+                Log.e("StatsViewModel", "Failed to refresh stats in background", e)
             }
         }
     }
 
-    private suspend fun loadReviewLogs(userId: String): List<UserReviewLog> {
-        val calendar = Calendar.getInstance().apply {
-            add(Calendar.DAY_OF_YEAR, -370)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    private suspend fun calculateStats(
+        progresses: List<UserWordProgress>,
+        logs: List<UserReviewLog>
+    ) {
+        try {
+            val calendar = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, -370)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val limitTime = calendar.time
+            val filteredLogs = logs.filter { !it.reviewedAt.before(limitTime) }
+
+            val masteredThreshold = AppSettings.masteredThreshold
+            val totalWords = progresses.size
+            val masteredWords = progresses.count {
+                it.status == "mastered" || it.interval > masteredThreshold
+            }
+            val learningWords = totalWords - masteredWords
+            val now = Date()
+            val dueTodayWords = progresses.count {
+                it.nextReviewDate.before(now) || it.nextReviewDate == now
+            }
+
+            val ratingBreakdown = buildRatingBreakdown(filteredLogs)
+            val retentionRate = calculateRetentionRate(filteredLogs, progresses)
+            val weeklyData = buildWeeklyData(filteredLogs)
+            val weeklyCompletedDays = weeklyData.map { it.value > 0 }
+            val monthlyData = buildMonthlyData(filteredLogs)
+            val currentStreak = calculateCurrentStreak(filteredLogs)
+            val activeDaysLast7 = weeklyCompletedDays.count { it }
+            val levelEstimate = LevelEstimator.estimate(
+                totalWords = totalWords,
+                masteredWords = masteredWords,
+                retentionRate = retentionRate,
+                activeDaysLast7 = activeDaysLast7
+            )
+
+            // Lấy danh sách từ theo rating từ logs
+            val wordsByRating = buildWordsByRating(filteredLogs)
+
+            uiState = StatsUiState.Success(
+                totalWords = totalWords,
+                masteredWords = masteredWords,
+                learningWords = learningWords,
+                dueTodayWords = dueTodayWords,
+                retentionRate = retentionRate,
+                ratingBreakdown = ratingBreakdown,
+                currentStreak = currentStreak,
+                weeklyData = weeklyData,
+                weeklyActiveIndex = weeklyData.lastIndex.coerceAtLeast(0),
+                weeklyCompletedDays = weeklyCompletedDays,
+                monthlyData = monthlyData,
+                levelEstimate = levelEstimate,
+                wordsByRating = wordsByRating
+            )
+        } catch (e: Exception) {
+            uiState = StatsUiState.Error(e.message ?: "Failed to calculate stats")
+        }
+    }
+
+    private suspend fun buildWordsByRating(
+        logs: List<UserReviewLog>
+    ): Map<String, List<RatedWordItem>> {
+        val ratings = listOf("EASY", "GOOD", "HARD", "AGAIN")
+
+        val grouped = ratings.associateWith { rating ->
+            logs.filter { it.rating.equals(rating, ignoreCase = true) }
+                .groupBy { it.wordId }
+                .mapValues { (_, logList) -> logList.maxByOrNull { it.reviewedAt }!! }
+                .values
+                .sortedByDescending { it.reviewedAt }
+                .take(50)
         }
 
-        val snapshot = firestore.collection("user_review_logs")
-            .whereEqualTo("userId", userId)
-            .whereGreaterThanOrEqualTo("reviewedAt", calendar.time)
-            .get()
-            .await()
+        val allWordIds = grouped.values.flatten().map { it.wordId }.distinct()
+        val wordInfoMap = mutableMapOf<String, Pair<String, String>>()
 
-        return snapshot.documents.mapNotNull { doc ->
-            try {
-                doc.toObject(UserReviewLog::class.java)?.copy(id = doc.id)
-            } catch (e: Exception) {
-                null
+        allWordIds.map { wordId ->
+            viewModelScope.async {
+                try {
+                    val doc = firestore.collection("vocabulary_words").document(wordId).get().await()
+                    val word = doc.getString("word") ?: ""
+                    val definitions = (doc.get("definitions") as? List<*>)
+                        ?.filterIsInstance<Map<String, Any>>() ?: emptyList()
+                    val meaning = definitions.firstOrNull()
+                        ?.get("meaningVietnamese") as? String ?: ""
+                    if (word.isNotBlank()) {
+                        synchronized(wordInfoMap) {
+                            wordInfoMap[wordId] = word to meaning
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }.awaitAll()
+
+        return grouped.mapValues { (_, logList) ->
+            logList.mapNotNull { log ->
+                val (word, meaning) = wordInfoMap[log.wordId] ?: return@mapNotNull null
+                RatedWordItem(
+                    wordId = log.wordId,
+                    word = word,
+                    meaning = meaning,
+                    lastRatedAt = log.reviewedAt
+                )
             }
         }
     }

@@ -65,4 +65,5 @@ sealed class Screen(val route: String) {
         const val ARG_SET_ID = "setId"
         fun createRoute(setId: String?) = if (setId != null) "game_hub?setId=$setId" else "game_hub"
     }
+    object TranslateAndLookup : Screen("translate_and_lookup")
 }

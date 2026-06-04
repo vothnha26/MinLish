@@ -38,78 +38,101 @@ class BuildQuizQuestionsUseCase {
             .ifEmpty { listOf(QuestionType.MULTIPLE_CHOICE) }
 
         val questionsList = mutableListOf<QuizQuestion>()
-        val remainingWords = wordsList.toMutableList()
-
-        // 1. Generate Matching questions first (needs groups of 4)
-        if (allowedTypes.contains(QuestionType.MATCHING)) {
-            while (remainingWords.size >= 4) {
-                val chunk = remainingWords.take(4)
-                remainingWords.removeAll(chunk.toSet())
-
-                val pairs = chunk.map { w ->
-                    Pair(
-                        w.word,
-                        w.definitions.firstOrNull { it.meaningVietnamese.isNotBlank() }
-                            ?.meaningVietnamese ?: "Nghĩa của từ"
-                    )
-                }
-
-                questionsList.add(
-                    QuizQuestion(
-                        type = QuestionType.MATCHING,
-                        word = chunk.first(),
-                        matchingPairs = pairs
-                    )
-                )
+        
+        // Trộn ngẫu nhiên danh sách từ đầu vào
+        val shuffledWords = wordsList.shuffled()
+        
+        // Các giỏ chứa từ vựng cho từng loại câu hỏi
+        val matchingWords = mutableListOf<VocabularyWord>()
+        val mcWords = mutableListOf<VocabularyWord>()
+        val spellingWords = mutableListOf<VocabularyWord>()
+        
+        // Phân phối ngẫu nhiên từ vựng vào các giỏ dựa trên allowedTypes
+        shuffledWords.forEach { word ->
+            val selectedType = allowedTypes.random()
+            when (selectedType) {
+                QuestionType.MATCHING -> matchingWords.add(word)
+                QuestionType.MULTIPLE_CHOICE -> mcWords.add(word)
+                QuestionType.SPELLING -> spellingWords.add(word)
             }
         }
-
-        // 2. Generate MC / Spelling for remaining words
-        val otherTypes = allowedTypes
-            .filter { it != QuestionType.MATCHING }
-            .ifEmpty { listOf(QuestionType.MULTIPLE_CHOICE) }
-
-        remainingWords.forEach { word ->
-            val questionType = otherTypes.random()
+        
+        // Xử lý từ thừa của Matching: Matching yêu cầu từng nhóm 4 từ
+        val matchingChunksCount = matchingWords.size / 4
+        val matchedCount = matchingChunksCount * 4
+        val leftovers = matchingWords.subList(matchedCount, matchingWords.size).toList()
+        
+        // Giữ lại số lượng từ chẵn chia hết cho 4 cho Matching
+        val finalMatchingWords = matchingWords.subList(0, matchedCount).toMutableList()
+        
+        // Phân phối số từ thừa sang các giỏ khác
+        val otherTypes = allowedTypes.filter { it != QuestionType.MATCHING }
+        leftovers.forEach { word ->
+            if (otherTypes.isNotEmpty()) {
+                val nextType = otherTypes.random()
+                if (nextType == QuestionType.SPELLING) {
+                    spellingWords.add(word)
+                } else {
+                    mcWords.add(word)
+                }
+            } else {
+                // Fallback mặc định
+                mcWords.add(word)
+            }
+        }
+        
+        // 1. Tạo câu hỏi Matching (nối cặp)
+        finalMatchingWords.chunked(4).forEach { chunk ->
+            val pairs = chunk.map { w ->
+                Pair(
+                    w.word,
+                    w.definitions.firstOrNull { it.meaningVietnamese.isNotBlank() }
+                        ?.meaningVietnamese ?: "Nghĩa của từ"
+                )
+            }
+            questionsList.add(
+                QuizQuestion(
+                    type = QuestionType.MATCHING,
+                    word = chunk.first(),
+                    matchingPairs = pairs
+                )
+            )
+        }
+        
+        // Lấy tất cả nghĩa tiếng Việt để làm distractor (phương án nhiễu) cho trắc nghiệm
+        val allMeanings = wordsList.mapNotNull { w ->
+            w.definitions.firstOrNull { it.meaningVietnamese.isNotBlank() }?.meaningVietnamese
+        }.distinct()
+        
+        // 2. Tạo câu hỏi Multiple Choice (Trắc nghiệm)
+        mcWords.forEach { word ->
             val primaryMeaning = word.definitions
                 .firstOrNull { it.meaningVietnamese.isNotBlank() }
                 ?.meaningVietnamese ?: "Nghĩa của từ"
-
-            when (questionType) {
-                QuestionType.MULTIPLE_CHOICE -> {
-                    val distractors = (
-                        wordsList
-                            .filter { it.id != word.id }
-                            .mapNotNull { w ->
-                                w.definitions.firstOrNull { it.meaningVietnamese.isNotBlank() }
-                                    ?.meaningVietnamese
-                            }
-                            .distinct()
-                            .shuffled() + fallbackDistractors
-                    )
-                        .filter { it != primaryMeaning }
-                        .distinct()
-                        .take(3)
-
-                    val allOptions = (distractors + primaryMeaning).shuffled()
-                    questionsList.add(
-                        QuizQuestion(
-                            type = QuestionType.MULTIPLE_CHOICE,
-                            word = word,
-                            options = allOptions,
-                            correctIndex = allOptions.indexOf(primaryMeaning)
-                        )
-                    )
-                }
-                QuestionType.SPELLING -> {
-                    questionsList.add(
-                        QuizQuestion(type = QuestionType.SPELLING, word = word)
-                    )
-                }
-                QuestionType.MATCHING -> { /* Already handled */ }
-            }
+            
+            val distractors = (allMeanings.filter { it != primaryMeaning }.shuffled() + fallbackDistractors)
+                .filter { it != primaryMeaning }
+                .distinct()
+                .take(3)
+            
+            val allOptions = (distractors + primaryMeaning).shuffled()
+            questionsList.add(
+                QuizQuestion(
+                    type = QuestionType.MULTIPLE_CHOICE,
+                    word = word,
+                    options = allOptions,
+                    correctIndex = allOptions.indexOf(primaryMeaning)
+                )
+            )
         }
-
+        
+        // 3. Tạo câu hỏi Spelling (Gõ chữ cái)
+        spellingWords.forEach { word ->
+            questionsList.add(
+                QuizQuestion(type = QuestionType.SPELLING, word = word)
+            )
+        }
+        
         return questionsList.shuffled().take(questionCount)
     }
 }

@@ -20,6 +20,8 @@ import java.util.Date
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+import com.edu.minlish.features.library.data.exporter.VocabularyExportManager
+
 sealed class LibraryUiState {
     object Loading : LibraryUiState()
     data class Success(val sets: List<VocabularySet>) : LibraryUiState()
@@ -38,7 +40,8 @@ sealed class ImportUiState {
 class LibraryViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
-    private val importManager: VocabularyImportManager = VocabularyImportManager()
+    private val importManager: VocabularyImportManager = VocabularyImportManager(),
+    private val exportManager: VocabularyExportManager = VocabularyExportManager()
 ) : ViewModel() {
 
     var uiState by mutableStateOf<LibraryUiState>(LibraryUiState.Loading)
@@ -50,9 +53,14 @@ class LibraryViewModel(
     var importUiState by mutableStateOf<ImportUiState>(ImportUiState.Idle)
         private set
 
+    var exportUiState by mutableStateOf<ExportUiState>(ExportUiState.Idle)
+        private set
+
     var importSetTitle by mutableStateOf("")
 
     var importCategory by mutableStateOf("Custom")
+
+    var exportWordsList = emptyList<VocabularyWord>()
 
     val filteredSets: List<VocabularySet>
         get() {
@@ -169,6 +177,50 @@ class LibraryViewModel(
                     uiState = LibraryUiState.Error(e.message ?: "Failed to load sets")
                 }
         }
+    }
+
+    fun prepareExportAll(onReady: () -> Unit) {
+        val state = uiState
+        if (state !is LibraryUiState.Success) return
+        
+        viewModelScope.launch {
+            exportUiState = ExportUiState.FetchingData
+            val allWords = mutableListOf<VocabularyWord>()
+            var hasError = false
+            
+            for (set in state.sets) {
+                repository.getWordsBySet(set.id)
+                    .onSuccess { allWords.addAll(it) }
+                    .onFailure { hasError = true }
+            }
+            
+            if (hasError) {
+                exportUiState = ExportUiState.Error("Failed to fetch some vocabulary data")
+            } else if (allWords.isEmpty()) {
+                exportUiState = ExportUiState.Error("No words found to export")
+            } else {
+                exportWordsList = allWords
+                onReady()
+                exportUiState = ExportUiState.Idle
+            }
+        }
+    }
+
+    fun startExport(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            exportUiState = ExportUiState.Exporting
+            exportManager.exportToCsv(context, uri, exportWordsList)
+                .onSuccess {
+                    exportUiState = ExportUiState.Success(uri.path?.substringAfterLast('/') ?: "vocabulary.csv")
+                }
+                .onFailure { e ->
+                    exportUiState = ExportUiState.Error(e.message ?: "Failed to export vocabulary")
+                }
+        }
+    }
+
+    fun clearExportState() {
+        exportUiState = ExportUiState.Idle
     }
 
     fun parseImportFile(context: Context, uri: Uri) {

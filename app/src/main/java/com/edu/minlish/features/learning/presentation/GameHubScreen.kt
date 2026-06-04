@@ -21,8 +21,6 @@ import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.component.MinLishButton
 
-private val QUESTION_COUNT_OPTIONS = listOf(5, 10, 15, 20)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameHubScreen(
@@ -30,10 +28,33 @@ fun GameHubScreen(
     onBack: () -> Unit,
     onStartGame: (String, Int) -> Unit
 ) {
+    val cache = com.edu.minlish.core.util.SessionDataManager
+    val totalWords = remember(setId, cache.vocabularySets) {
+        if (setId != null) {
+            cache.vocabularySets?.find { it.id == setId }?.wordCount ?: 0
+        } else {
+            cache.vocabularySets?.sumOf { it.wordCount } ?: 0
+        }
+    }
+
+    val questionCountOptions = remember(totalWords) {
+        if (totalWords <= 0) {
+            listOf(5)
+        } else if (totalWords <= 5) {
+            listOf(totalWords)
+        } else {
+            val baseList = listOf(5, 10, 15, 20).filter { it < totalWords }.toMutableList()
+            baseList.add(totalWords)
+            baseList.distinct().sorted()
+        }
+    }
+
     var isMultipleChoiceChecked by remember { mutableStateOf(true) }
     var isSpellingChecked by remember { mutableStateOf(false) }
     var isMatchingChecked by remember { mutableStateOf(false) }
-    var selectedCount by remember { mutableStateOf(10) }
+    var selectedCount by remember(questionCountOptions) { 
+        mutableStateOf(if (questionCountOptions.contains(10)) 10 else questionCountOptions.first()) 
+    }
 
     val isAnyChecked = isMultipleChoiceChecked || isSpellingChecked || isMatchingChecked
 
@@ -114,8 +135,10 @@ fun GameHubScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                QUESTION_COUNT_OPTIONS.forEach { count ->
+                questionCountOptions.forEach { count ->
                     val isSelected = selectedCount == count
+                    val isAll = count == totalWords && totalWords > 0
+                    val displayText = if (isAll) "Tất cả" else count.toString()
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -131,8 +154,8 @@ fun GameHubScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = count.toString(),
-                            fontSize = 16.sp,
+                            text = displayText,
+                            fontSize = if (isAll) 12.sp else 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSelected) Color.White else Color(0xFF111111),
                             textAlign = TextAlign.Center
