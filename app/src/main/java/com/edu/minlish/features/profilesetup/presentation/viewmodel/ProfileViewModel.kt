@@ -39,7 +39,9 @@ class ProfileViewModel(
         }
 
         viewModelScope.launch {
-            uiState = ProfileUiState.Loading
+            if (uiState !is ProfileUiState.Success) {
+                uiState = ProfileUiState.Loading
+            }
             
             // 1. Fetch Full Name from Firestore to ensure it's up to date
             val fetchedNameResult = authRepository.fetchUserFullName(currentUser.id)

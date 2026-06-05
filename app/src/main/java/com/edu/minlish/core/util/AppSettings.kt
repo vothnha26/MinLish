@@ -39,4 +39,10 @@ object AppSettings {
         set(value) {
             prefs?.edit()?.putBoolean("is_streak_freeze_equipped", value)?.apply()
         }
+
+    var dailyNewWordsTarget: Int
+        get() = prefs?.getInt("daily_new_words_target", 10) ?: 10
+        set(value) {
+            prefs?.edit()?.putInt("daily_new_words_target", value)?.apply()
+        }
 }

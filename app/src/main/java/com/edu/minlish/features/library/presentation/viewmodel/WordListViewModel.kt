@@ -59,7 +59,9 @@ class WordListViewModel(
 
     fun loadWords(setId: String) {
         viewModelScope.launch {
-            uiState = WordListUiState.Loading
+            if (uiState !is WordListUiState.Success) {
+                uiState = WordListUiState.Loading
+            }
             
             val setRepoResult: Result<com.edu.minlish.features.library.domain.model.VocabularySet> = repository.getSetById(setId)
             setRepoResult.onSuccess { set ->

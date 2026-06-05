@@ -58,12 +58,13 @@ class FlashcardViewModel(
             val result = if (forceAll) {
                 repository.getDueWords(currentUser.id, setId, forceAll = true)
             } else {
-                var targetNew = 10
+                var targetNew = com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget
                 var targetReview = 20
                 
                 profileRepository.getProfile(currentUser.id).onSuccess { profile ->
                     if (profile != null) {
-                        targetNew = profile.dailyNewWordsTarget
+                        com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget = profile.dailyNewWordsTarget
+                        targetNew = com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget
                         targetReview = profile.dailyReviewWordsTarget
                     }
                 }

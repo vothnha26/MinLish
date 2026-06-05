@@ -138,7 +138,9 @@ class LibraryViewModel(
         }
 
         viewModelScope.launch {
-            uiState = LibraryUiState.Loading
+            if (uiState !is LibraryUiState.Success) {
+                uiState = LibraryUiState.Loading
+            }
             repository.getUserSets(currentUser.id)
                 .onSuccess { sets ->
                     try {

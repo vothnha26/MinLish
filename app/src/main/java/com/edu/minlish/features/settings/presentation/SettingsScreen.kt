@@ -32,6 +32,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -41,6 +44,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     var notificationsEnabled by remember { mutableStateOf(true) }
     var reminderTime by remember { mutableStateOf("09:00 PM") }
+    val coroutineScope = rememberCoroutineScope()
+    var dailyGoalVal by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget) }
     var showSaveDialog by remember { mutableStateOf(false) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -352,6 +357,64 @@ fun SettingsScreen(
                             .background(Color(0xFFF0F0F0))
                     )
 
+                    // Row: Daily New Words Goal Selector
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Daily New Words Goal",
+                                color = Color(0xFF111111),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Number of new words to learn each day",
+                                color = Color(0xFF6B6B6B),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            IconButton(
+                                onClick = { if (dailyGoalVal > 1) dailyGoalVal-- },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("-", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Primary)
+                            }
+                            
+                            Text(
+                                text = dailyGoalVal.toString(),
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111111),
+                                fontSize = 16.sp,
+                                modifier = Modifier.width(24.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+
+                            IconButton(
+                                onClick = { if (dailyGoalVal < 100) dailyGoalVal++ },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Primary)
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color(0xFFF0F0F0))
+                    )
+
                     // Manual Threshold Setup Row
                     Row(
                         modifier = Modifier
@@ -492,6 +555,25 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showSaveDialog = false
+                    
+                    // Lưu local
+                    com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget = dailyGoalVal
+                    
+                    // Sync lên Firestore profiles collection
+                    val userId = FirebaseAuth.getInstance().currentUser?.uid
+                    if (userId != null) {
+                        coroutineScope.launch {
+                            try {
+                                FirebaseFirestore.getInstance()
+                                    .collection("profiles")
+                                    .document(userId)
+                                    .update("dailyNewWordsTarget", dailyGoalVal)
+                            } catch (e: Exception) {
+                                // ignore
+                            }
+                        }
+                    }
+                    
                     val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
                     val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
                     if (notificationsEnabled) {

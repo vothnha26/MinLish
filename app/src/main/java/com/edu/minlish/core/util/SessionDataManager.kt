@@ -96,7 +96,7 @@ object SessionDataManager {
         // 1. Tải một lần ban đầu (để đảm bảo isDataLoaded là true ngay lập tức và UI không bị block)
         val profileDeferred = async {
             try {
-                val snapshot = firestore.collection("users")
+                val snapshot = firestore.collection("profiles")
                     .document(userId)
                     .get()
                     .await()
@@ -163,7 +163,7 @@ object SessionDataManager {
         Log.d(TAG, "Initial pre-fetch completed. Registering real-time listeners...")
 
         // 2. Đăng ký SnapshotListener toàn cục để tự động đồng bộ thời gian thực
-        profileListener = firestore.collection("users")
+        profileListener = firestore.collection("profiles")
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {

@@ -82,28 +82,19 @@ class GeminiAIService(
                 Yêu cầu:
                 - Số lượng từ: $wordCount từ.
                 - Thể loại: $category.
-                - Bao gồm cụm từ đi kèm (collocations): ${if (includeCollocations) "Có" else "Không"}.
                 
-                Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc sau, KHÔNG ĐƯỢC có các thẻ markdown bao quanh:
+                Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc mẫu dưới đây, KHÔNG ĐƯỢC có các thẻ markdown bao quanh.
+                Chú ý: Sinh nghĩa tiếng Việt chuẩn xác nhất theo đúng ngữ cảnh và chủ đề ôn tập.
+                
                 {
                   "title": "Tên bộ từ vựng hấp dẫn",
                   "description": "Mô tả ngắn gọn về bộ từ vựng",
                   "words": [
                     {
-                      "word": "từ_vựng",
+                      "word": "từ_tiếng_Anh",
                       "pronunciation": "phiên_âm_IPA",
-                      "definitions": [
-                        {
-                          "pos": "Noun/Verb/...",
-                          "meaningVietnamese": "nghĩa tiếng Việt",
-                          "definitionEnglish": "English definition",
-                          "exampleSentence": "Câu ví dụ",
-                          "synonyms": ["đồng nghĩa"],
-                          "antonyms": ["trái nghĩa"]
-                        }
-                      ],
-                      "collocations": "cụm từ đi kèm",
-                      "personalNote": "ghi chú"
+                      "pos": "Noun/Verb/Adjective/...",
+                      "meaningVietnamese": "nghĩa tiếng Việt chính xác theo chủ đề"
                     }
                   ]
                 }

@@ -360,7 +360,7 @@ fun TranslationTab(
         ) {
             Icon(Icons.Default.Translate, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Dịch & Phân tích thông minh", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Dịch văn bản", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
         // Translation Result

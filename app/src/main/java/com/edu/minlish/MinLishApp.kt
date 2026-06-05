@@ -37,12 +37,38 @@ import com.edu.minlish.features.learning.presentation.GameHubScreen
 import com.edu.minlish.features.notification.presentation.NotificationListScreen
 import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
 import com.edu.minlish.features.speaking.presentation.SpeakingScreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.runtime.remember
 
 @Composable
 fun MinLishApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val googleSignInClient = remember {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(context, gso)
+    }
+
+    val performLogout = {
+        // Đăng xuất Firebase
+        FirebaseAuth.getInstance().signOut()
+        // Xóa cache dữ liệu học tập
+        com.edu.minlish.core.util.SessionDataManager.clear()
+        // Đăng xuất Google SDK (xóa tài khoản đã chọn) và chuyển về Login
+        googleSignInClient.signOut().addOnCompleteListener {
+            navController.navigate(Screen.Login.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     // Define routes that should display bottom navigation bar
     val showBottomBarRoutes = listOf(
@@ -94,8 +120,34 @@ fun MinLishApp() {
             composable(Screen.Splash.route) {
                 SplashScreen(
                     onDone = {
-                        navController.navigate(Screen.Onboarding.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        val firebaseAuth = FirebaseAuth.getInstance()
+                        val currentUser = firebaseAuth.currentUser
+                        if (currentUser != null) {
+                            // Tự động kiểm tra setup profile để điều hướng chính xác
+                            val firestore = FirebaseFirestore.getInstance()
+                            firestore.collection("profiles").document(currentUser.uid).get()
+                                .addOnSuccessListener { doc ->
+                                    val isSetupComplete = doc.exists() && !doc.getString("learningGoal").isNullOrEmpty()
+                                    if (isSetupComplete) {
+                                        navController.navigate(Screen.Home.route) {
+                                            popUpTo(Screen.Splash.route) { inclusive = true }
+                                        }
+                                    } else {
+                                        navController.navigate(Screen.ProfileSetup.route) {
+                                            popUpTo(Screen.Splash.route) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    // Mặc định vào Home nếu lỗi kết nối nhưng phiên Auth vẫn khả dụng
+                                    navController.navigate(Screen.Home.route) {
+                                        popUpTo(Screen.Splash.route) { inclusive = true }
+                                    }
+                                }
+                        } else {
+                            navController.navigate(Screen.Onboarding.route) {
+                                popUpTo(Screen.Splash.route) { inclusive = true }
+                            }
                         }
                     }
                 )
@@ -192,11 +244,7 @@ fun MinLishApp() {
             // Personal Profile Screen Route
             composable(Screen.PersonalProfile.route) {
                 PersonalProfileScreen(
-                    onLogout = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0)
-                        }
-                    },
+                    onLogout = { performLogout() },
                     onEditProfile = {
                         navController.navigate(Screen.ProfileSetup.createRoute(isEdit = true))
                     },
@@ -337,11 +385,7 @@ fun MinLishApp() {
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
-                    onLogout = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    }
+                    onLogout = { performLogout() }
                 )
             }
 

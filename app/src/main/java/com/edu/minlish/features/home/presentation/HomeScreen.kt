@@ -102,7 +102,7 @@ fun HomeScreen(
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "Good morning 👋",
+                        text = uiState.greeting,
                         color = Color(0xFF111111),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold

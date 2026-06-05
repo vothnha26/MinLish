@@ -9,7 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.core.ai.AIModule
 import com.edu.minlish.features.library.data.repository.FirestoreVocabularyRepositoryImpl
-import com.edu.minlish.features.library.data.repository.GeminiTranslationStrategy
+import com.edu.minlish.features.library.data.repository.GoogleTranslationStrategy
 import com.edu.minlish.features.library.data.repository.LookupStrategyFactory
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.model.VocabularyWord
@@ -46,8 +46,8 @@ data class ExtractedWordItem(
 
 class TranslateAndLookupViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
-    private val translationStrategy: TranslationStrategy = GeminiTranslationStrategy(),
-    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = true),
+    private val translationStrategy: TranslationStrategy = GoogleTranslationStrategy(),
+    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = false),
     private val getUserId: () -> String? = { FirebaseAuth.getInstance().currentUser?.uid }
 ) : ViewModel() {
 
@@ -153,55 +153,13 @@ class TranslateAndLookupViewModel(
             translatedText = ""
             wordSavedStatus.clear()
 
-            // Call Gemini AIService to translate and extract vocabulary simultaneously
-            AIModule.geminiService.translateAndExtractVocabulary(text, sourceLangCode, targetLangCode).onSuccess { jsonStr ->
-                try {
-                    // Extract JSON from markdown tags if exists
-                    val cleanJson = if (jsonStr.contains("```json")) {
-                        jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
-                    } else if (jsonStr.contains("```")) {
-                        jsonStr.substringAfter("```").substringBeforeLast("```").trim()
-                    } else {
-                        jsonStr
-                    }
-
-                    val response = Gson().fromJson(cleanJson, TranslationAndExtractionResult::class.java)
-                    translatedText = response.translatedText
-                    
-                    val mappedWords = response.extractedWords.map { item ->
-                        VocabularyWord(
-                            word = item.word,
-                            pronunciation = item.pronunciation,
-                            audioUrl = "https://dict.youdao.com/dictvoice?audio=${item.word.trim().lowercase()}&type=2",
-                            definitions = item.definitions,
-                            collocations = item.collocations,
-                            personalNote = item.personalNote,
-                            imageUrl = "https://loremflickr.com/600/400/${item.word.lowercase().trim()}?lock=${Math.abs(item.word.hashCode())}"
-                        )
-                    }
-                    extractedWords.addAll(mappedWords)
-                    
-                    // Pre-check if any of these words already exist in user library
-                    checkIfWordsSaved(mappedWords)
-
-                    uiState = TranslateAndLookupUiState.Success
-                } catch (e: Exception) {
-                    // Fallback to pure translation if JSON extraction fails
-                    fallbackPureTranslation(text)
-                }
+            // Dịch thuật thuần túy sử dụng API Google Translate sẵn có (Nhanh, miễn phí, không tốn AI)
+            translationStrategy.translate(text, sourceLangCode, targetLangCode).onSuccess { translation ->
+                translatedText = translation
+                uiState = TranslateAndLookupUiState.Success
             }.onFailure { e ->
-                // Fallback to pure translation
-                fallbackPureTranslation(text)
+                uiState = TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật thất bại. Vui lòng kiểm tra lại kết nối.")
             }
-        }
-    }
-
-    private suspend fun fallbackPureTranslation(text: String) {
-        translationStrategy.translate(text, sourceLangCode, targetLangCode).onSuccess { translation ->
-            translatedText = translation
-            uiState = TranslateAndLookupUiState.Success
-        }.onFailure { e ->
-            uiState = TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật thất bại. Vui lòng kiểm tra lại kết nối.")
         }
     }
 

@@ -27,6 +27,7 @@ data class RecentWordItem(val id: String, val word: String, val meaning: String)
 data class HomeUiState(
     val dateString: String = "",
     val userName: String = "",
+    val greeting: String = "Hello 👋",
     val streakDays: Int = 0,
     val learnedCount: Int = 0,
     val dueTodayCount: Int = 0,
@@ -109,7 +110,10 @@ class HomeViewModel(
         val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.ENGLISH)
         val dateString = dateFormat.format(Date())
 
-        val targetNew = profile.dailyNewWordsTarget
+        // Đồng bộ mục tiêu từ Firestore về local
+        com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget = profile.dailyNewWordsTarget
+
+        val targetNew = com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget
         val targetReview = profile.dailyReviewWordsTarget
 
         val todayLogs = logsForDay(logs, Date())
@@ -123,9 +127,20 @@ class HomeViewModel(
         val now = Date()
         val dueTodayCount = progresses.filter { it.nextReviewDate.before(now) || it.nextReviewDate == now }.size
 
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val greetingPrefix = when (hour) {
+            in 5..11 -> "Good morning"
+            in 12..17 -> "Good afternoon"
+            in 18..21 -> "Good evening"
+            else -> "Good night"
+        }
+        val nameToDisplay = currentUser.fullName ?: "User"
+        val greeting = "$greetingPrefix, $nameToDisplay 👋"
+
         uiState = HomeUiState(
             dateString = dateString,
-            userName = currentUser.fullName ?: "User",
+            userName = nameToDisplay,
+            greeting = greeting,
             streakDays = streakDays,
             learnedCount = learnedCount,
             dueTodayCount = dueTodayCount,
