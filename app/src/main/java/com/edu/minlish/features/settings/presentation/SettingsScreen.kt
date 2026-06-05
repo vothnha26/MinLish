@@ -42,8 +42,8 @@ fun SettingsScreen(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var reminderTime by remember { mutableStateOf("09:00 PM") }
+    var notificationsEnabled by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.isNotificationsEnabled) }
+    var reminderTime by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.reminderTime) }
     val coroutineScope = rememberCoroutineScope()
     var dailyGoalVal by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget) }
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -51,7 +51,7 @@ fun SettingsScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
+        val reminderRepo = com.edu.minlish.core.notification.AlarmReminderRepository(context)
         val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
         if (isGranted) {
             scheduleUseCase.schedule(reminderTime)
@@ -558,6 +558,8 @@ fun SettingsScreen(
                     
                     // Lưu local
                     com.edu.minlish.core.util.AppSettings.dailyNewWordsTarget = dailyGoalVal
+                    com.edu.minlish.core.util.AppSettings.isNotificationsEnabled = notificationsEnabled
+                    com.edu.minlish.core.util.AppSettings.reminderTime = reminderTime
                     
                     // Sync lên Firestore profiles collection
                     val userId = FirebaseAuth.getInstance().currentUser?.uid
@@ -574,7 +576,7 @@ fun SettingsScreen(
                         }
                     }
                     
-                    val reminderRepo = com.edu.minlish.core.notification.WorkManagerReminderRepository(context)
+                    val reminderRepo = com.edu.minlish.core.notification.AlarmReminderRepository(context)
                     val scheduleUseCase = com.edu.minlish.core.notification.ScheduleReminderUseCase(reminderRepo)
                     if (notificationsEnabled) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

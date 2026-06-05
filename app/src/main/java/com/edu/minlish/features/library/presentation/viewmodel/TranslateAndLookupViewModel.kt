@@ -100,7 +100,7 @@ class TranslateAndLookupViewModel(
         recentHistory.remove(cleanWord)
         recentHistory.add(0, cleanWord)
         if (recentHistory.size > 5) {
-            recentHistory.removeLast()
+            recentHistory.removeAt(recentHistory.lastIndex)
         }
         AppSettings.recentLookupHistory = recentHistory.joinToString(",")
     }

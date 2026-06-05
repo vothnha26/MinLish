@@ -45,4 +45,16 @@ object AppSettings {
         set(value) {
             prefs?.edit()?.putInt("daily_new_words_target", value)?.apply()
         }
+
+    var reminderTime: String
+        get() = prefs?.getString("reminder_time", "09:00 PM") ?: "09:00 PM"
+        set(value) {
+            prefs?.edit()?.putString("reminder_time", value)?.apply()
+        }
+
+    var isNotificationsEnabled: Boolean
+        get() = prefs?.getBoolean("is_notifications_enabled", true) ?: true
+        set(value) {
+            prefs?.edit()?.putBoolean("is_notifications_enabled", value)?.apply()
+        }
 }
