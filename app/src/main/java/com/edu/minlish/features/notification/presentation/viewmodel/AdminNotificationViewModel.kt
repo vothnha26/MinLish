@@ -1,13 +1,13 @@
 package com.edu.minlish.features.notification.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.notification.data.repository.FirestoreNotificationRepositoryImpl
 import com.edu.minlish.features.notification.domain.model.Notification
 import com.edu.minlish.features.notification.domain.repository.NotificationRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -22,16 +22,16 @@ class AdminNotificationViewModel(
     private val repository: NotificationRepository = FirestoreNotificationRepositoryImpl()
 ) : ViewModel() {
 
-    var publishState by mutableStateOf<PublishUiState>(PublishUiState.Idle)
-        private set
+    private val _publishState = MutableStateFlow<PublishUiState>(PublishUiState.Idle)
+    val publishState: StateFlow<PublishUiState> = _publishState.asStateFlow()
 
     fun publishNotification(title: String, message: String) {
         if (title.isBlank() || message.isBlank()) {
-            publishState = PublishUiState.Error("Fields cannot be empty")
+            _publishState.value = PublishUiState.Error("Fields cannot be empty")
             return
         }
 
-        publishState = PublishUiState.Loading
+        _publishState.value = PublishUiState.Loading
         viewModelScope.launch {
             val notification = Notification(
                 title = title,
@@ -41,15 +41,15 @@ class AdminNotificationViewModel(
             )
             repository.publishNotification(notification)
                 .onSuccess {
-                    publishState = PublishUiState.Success
+                    _publishState.value = PublishUiState.Success
                 }
                 .onFailure { e ->
-                    publishState = PublishUiState.Error(e.message ?: "Failed to publish notification")
+                    _publishState.value = PublishUiState.Error(e.message ?: "Failed to publish notification")
                 }
         }
     }
 
     fun resetState() {
-        publishState = PublishUiState.Idle
+        _publishState.value = PublishUiState.Idle
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.core.designsystem.theme.Border
@@ -48,7 +49,10 @@ fun QuizGameScreen(
     onBack: () -> Unit,
     viewModel: QuizViewModel = viewModel(factory = QuizViewModelFactory(LocalContext.current.applicationContext as android.app.Application))
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentIndex by viewModel.currentIndex.collectAsStateWithLifecycle()
+    val score by viewModel.score.collectAsStateWithLifecycle()
+    val maxScore by viewModel.maxScore.collectAsStateWithLifecycle()
     val normalizedSetId = setId
         ?.takeIf { it.isNotBlank() && it != "{setId}" }
 
@@ -79,7 +83,7 @@ fun QuizGameScreen(
                 .padding(padding)
                 .background(Color(0xFFF8F8F8))
         ) {
-            when (uiState) {
+            when (val state = uiState) {
                 is QuizUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
                 }
@@ -90,7 +94,7 @@ fun QuizGameScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = uiState.message,
+                            text = state.message,
                             color = Color.Red,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(bottom = 24.dp)
@@ -105,15 +109,15 @@ fun QuizGameScreen(
                 }
                 is QuizUiState.Finished -> {
                     QuizFinishedScreen(
-                        score = uiState.score,
-                        total = uiState.maxScore,
+                        score = state.score,
+                        total = state.maxScore,
                         onBack = onBack,
                         onRetry = { viewModel.loadQuiz(normalizedSetId, modes, questionCount) }
                     )
                 }
                 is QuizUiState.Success -> {
-                    val questions = uiState.questions
-                    val currentQuestion = questions.getOrNull(viewModel.currentIndex)
+                    val questions = state.questions
+                    val currentQuestion = questions.getOrNull(currentIndex)
 
                     if (currentQuestion != null) {
                         Column(
@@ -124,7 +128,7 @@ fun QuizGameScreen(
                         ) {
                             // Progress bar
                             LinearProgressIndicator(
-                                progress = { (viewModel.currentIndex + 1).toFloat() / questions.size },
+                                progress = { (currentIndex + 1).toFloat() / questions.size },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(8.dp)
@@ -138,17 +142,18 @@ fun QuizGameScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Question ${viewModel.currentIndex + 1} of ${questions.size}",
+                                    text = "Question ${currentIndex + 1} of ${questions.size}",
                                     fontSize = 12.sp,
                                     color = Color.Gray
                                 )
                                 Text(
-                                    text = "Điểm: ${viewModel.score} / ${viewModel.maxScore}",
+                                    text = "Điểm: $score / $maxScore",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Primary
                                 )
                             }
+                        
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -186,7 +191,8 @@ fun MultipleChoiceLayout(
     question: QuizQuestion,
     viewModel: QuizViewModel
 ) {
-    val isAnswered = viewModel.selectedOptionIndex != null
+    val selectedOptionIndex by viewModel.selectedOptionIndex.collectAsStateWithLifecycle()
+    val isAnswered = selectedOptionIndex != null
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -247,7 +253,7 @@ fun MultipleChoiceLayout(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             question.options.forEachIndexed { index, option ->
-                val isSelected = viewModel.selectedOptionIndex == index
+                val isSelected = selectedOptionIndex == index
                 val isCorrect = index == question.correctIndex
 
                 val containerColor = when {
@@ -314,6 +320,10 @@ fun SpellingLayout(
     val meaning = primaryDefinition?.meaningVietnamese ?: "Từ vựng tiếng Anh"
     val enDefinition = primaryDefinition?.definitionEnglish ?: ""
 
+    val spellingInput by viewModel.spellingInput.collectAsStateWithLifecycle()
+    val isSpellingChecked by viewModel.isSpellingChecked.collectAsStateWithLifecycle()
+    val isSpellingCorrect by viewModel.isSpellingCorrect.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -377,12 +387,12 @@ fun SpellingLayout(
 
         // TextInput OutlinedTextField
         OutlinedTextField(
-            value = viewModel.spellingInput,
-            onValueChange = { if (!viewModel.isSpellingChecked) viewModel.spellingInput = it },
+            value = spellingInput,
+            onValueChange = { if (!isSpellingChecked) viewModel.updateSpellingInput(it) },
             label = { Text("Gõ từ tiếng Anh tương ứng") },
             placeholder = { Text("Ví dụ: apple") },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !viewModel.isSpellingChecked,
+            enabled = !isSpellingChecked,
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Done
             ),
@@ -403,34 +413,34 @@ fun SpellingLayout(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Spelling feedback status
-        AnimatedVisibility(visible = viewModel.isSpellingChecked) {
+        AnimatedVisibility(visible = isSpellingChecked) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (viewModel.isSpellingCorrect) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                        if (isSpellingCorrect) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
                         shape = RoundedCornerShape(12.dp)
                     )
                     .border(
                         1.dp,
-                        if (viewModel.isSpellingCorrect) Color(0xFF81C784) else Color(0xFFFF5252),
+                        if (isSpellingCorrect) Color(0xFF81C784) else Color(0xFFFF5252),
                         shape = RoundedCornerShape(12.dp)
                     )
                     .padding(16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = if (viewModel.isSpellingCorrect) "Đúng rồi! Tuyệt vời 🎉" else "Chưa chính xác!",
+                    text = if (isSpellingCorrect) "Đúng rồi! Tuyệt vời 🎉" else "Chưa chính xác!",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (viewModel.isSpellingCorrect) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    color = if (isSpellingCorrect) Color(0xFF2E7D32) else Color(0xFFC62828)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Đáp án đúng: ${question.word.word}",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (viewModel.isSpellingCorrect) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    color = if (isSpellingCorrect) Color(0xFF2E7D32) else Color(0xFFC62828)
                 )
             }
         }
@@ -438,10 +448,10 @@ fun SpellingLayout(
         Spacer(modifier = Modifier.weight(1f))
 
         // Action Button spelling
-        if (!viewModel.isSpellingChecked) {
+        if (!isSpellingChecked) {
             MinLishButton(
                 text = "Kiểm tra đáp án",
-                enabled = viewModel.spellingInput.isNotBlank(),
+                enabled = spellingInput.isNotBlank(),
                 onClick = {
                     focusManager.clearFocus()
                     viewModel.checkSpellingAnswer()
@@ -466,7 +476,13 @@ fun MatchingLayout(
     // Vietnamese items xập xình
     val vietnameseWords = remember(question) { question.matchingPairs.map { it.second }.shuffled() }
 
-    val isAllMatched = viewModel.matchedEnglishCards.size == question.matchingPairs.size
+    val matchedEnglishCards by viewModel.matchedEnglishCards.collectAsStateWithLifecycle()
+    val matchedVietnameseCards by viewModel.matchedVietnameseCards.collectAsStateWithLifecycle()
+    val selectedEnglishCard by viewModel.selectedEnglishCard.collectAsStateWithLifecycle()
+    val selectedVietnameseCard by viewModel.selectedVietnameseCard.collectAsStateWithLifecycle()
+    val matchingErrorPair by viewModel.matchingErrorPair.collectAsStateWithLifecycle()
+
+    val isAllMatched = matchedEnglishCards.size == question.matchingPairs.size
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -497,9 +513,9 @@ fun MatchingLayout(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 englishWords.forEach { word ->
-                    val isMatched = viewModel.matchedEnglishCards.contains(word)
-                    val isSelected = viewModel.selectedEnglishCard == word
-                    val isErr = viewModel.matchingErrorPair?.first == word
+                    val isMatched = matchedEnglishCards.contains(word)
+                    val isSelected = selectedEnglishCard == word
+                    val isErr = matchingErrorPair?.first == word
 
                     val borderColor = when {
                         isMatched -> Color.Transparent
@@ -556,9 +572,9 @@ fun MatchingLayout(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 vietnameseWords.forEach { meaning ->
-                    val isMatched = viewModel.matchedVietnameseCards.contains(meaning)
-                    val isSelected = viewModel.selectedVietnameseCard == meaning
-                    val isErr = viewModel.matchingErrorPair?.second == meaning
+                    val isMatched = matchedVietnameseCards.contains(meaning)
+                    val isSelected = selectedVietnameseCard == meaning
+                    val isErr = matchingErrorPair?.second == meaning
 
                     val borderColor = when {
                         isMatched -> Color.Transparent

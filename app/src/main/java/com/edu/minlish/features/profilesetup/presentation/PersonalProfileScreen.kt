@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileViewModel
 import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileUiState
@@ -36,7 +38,7 @@ fun PersonalProfileScreen(
     onSettingsClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
@@ -74,20 +76,21 @@ fun PersonalProfileScreen(
                 .padding(padding)
                 .background(Color(0xFFF8F8F8))
         ) {
-            when (uiState) {
+            val state = uiState
+            when (state) {
                 is ProfileUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
                 }
                 is ProfileUiState.Error -> {
                     Text(
-                        text = uiState.message,
+                        text = state.message,
                         color = Color.Red,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
                 is ProfileUiState.Success -> {
-                    val user = uiState.user
-                    val profile = uiState.profile
+                    val user = state.user
+                    val profile = state.profile
 
                     Column(
                         modifier = Modifier

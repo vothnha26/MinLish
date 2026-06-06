@@ -44,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 // Step data models
 data class GoalItem(val id: String, val label: String, val icon: ImageVector)
@@ -55,12 +56,12 @@ fun ProfileSetupScreen(
     onDone: () -> Unit,
     viewModel: ProfileSetupViewModel = viewModel()
 ) {
-    var step by remember { mutableStateOf(1) }
-    var name by remember { mutableStateOf("") }
-    var selectedGoal by remember { mutableStateOf("ielts") }
-    var selectedLevel by remember { mutableStateOf("B1") }
+    val step by viewModel.step.collectAsStateWithLifecycle()
+    val name by viewModel.name.collectAsStateWithLifecycle()
+    val selectedGoal by viewModel.selectedGoal.collectAsStateWithLifecycle()
+    val selectedLevel by viewModel.selectedLevel.collectAsStateWithLifecycle()
 
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(isEdit) {
         if (isEdit) {
@@ -68,22 +69,15 @@ fun ProfileSetupScreen(
         }
     }
 
-    LaunchedEffect(viewModel.name, viewModel.selectedGoal, viewModel.selectedLevel) {
-        if (isEdit) {
-            name = viewModel.name
-            selectedGoal = viewModel.selectedGoal
-            selectedLevel = viewModel.selectedLevel
-        }
-    }
-
     LaunchedEffect(uiState) {
-        if (uiState is ProfileSetupUiState.Success) {
+        val state = uiState
+        if (state is ProfileSetupUiState.Success) {
             onDone()
         }
     }
 
     val handleBack = {
-        if (step > 1) step -= 1
+        viewModel.previousStep()
     }
 
     val handleDone = {
@@ -93,11 +87,11 @@ fun ProfileSetupScreen(
     if (isEdit) {
         EditProfileContent(
             name = name,
-            onNameChange = { name = it },
+            onNameChange = { viewModel.updateName(it) },
             selectedGoal = selectedGoal,
-            onGoalSelected = { selectedGoal = it },
+            onGoalSelected = { viewModel.updateSelectedGoal(it) },
             selectedLevel = selectedLevel,
-            onLevelSelected = { selectedLevel = it },
+            onLevelSelected = { viewModel.updateSelectedLevel(it) },
             isLoading = uiState is ProfileSetupUiState.Loading,
             errorMsg = (uiState as? ProfileSetupUiState.Error)?.message,
             onSave = handleDone,
@@ -115,9 +109,10 @@ fun ProfileSetupScreen(
             StepHeader(step = step, onBack = handleBack)
 
             // Error message if any
-            if (uiState is ProfileSetupUiState.Error) {
+            val state = uiState
+            if (state is ProfileSetupUiState.Error) {
                 Text(
-                    text = uiState.message,
+                    text = state.message,
                     color = Color.Red,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
@@ -140,17 +135,17 @@ fun ProfileSetupScreen(
                     when (targetStep) {
                         1 -> Step1Content(
                             name = name,
-                            onNameChange = { name = it },
-                            onNext = { step = 2 }
+                            onNameChange = { viewModel.updateName(it) },
+                            onNext = { viewModel.nextStep() }
                         )
                         2 -> Step2Content(
                             selectedGoal = selectedGoal,
-                            onGoalSelected = { selectedGoal = it },
-                            onNext = { step = 3 }
+                            onGoalSelected = { viewModel.updateSelectedGoal(it) },
+                            onNext = { viewModel.nextStep() }
                         )
                         3 -> Step3Content(
                             selectedLevel = selectedLevel,
-                            onLevelSelected = { selectedLevel = it },
+                            onLevelSelected = { viewModel.updateSelectedLevel(it) },
                             isLoading = uiState is ProfileSetupUiState.Loading,
                             onDone = handleDone
                         )

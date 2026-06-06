@@ -1,8 +1,5 @@
 package com.edu.minlish.features.profilesetup.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
@@ -11,6 +8,9 @@ import com.edu.minlish.features.auth.domain.repository.AuthRepository
 import com.edu.minlish.features.profilesetup.data.repository.FirestoreProfileRepositoryImpl
 import com.edu.minlish.features.profilesetup.domain.model.UserProfile
 import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed class ProfileUiState {
@@ -24,8 +24,8 @@ class ProfileViewModel(
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<ProfileUiState>(ProfileUiState.Loading)
-        private set
+    private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
         loadProfile()
@@ -34,13 +34,13 @@ class ProfileViewModel(
     fun loadProfile() {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = ProfileUiState.Error("User not logged in")
+            _uiState.value = ProfileUiState.Error("User not logged in")
             return
         }
 
         viewModelScope.launch {
-            if (uiState !is ProfileUiState.Success) {
-                uiState = ProfileUiState.Loading
+            if (_uiState.value !is ProfileUiState.Success) {
+                _uiState.value = ProfileUiState.Loading
             }
             
             // 1. Fetch Full Name from Firestore to ensure it's up to date
@@ -51,10 +51,10 @@ class ProfileViewModel(
             // 2. Fetch User Profile
             profileRepository.getProfile(currentUser.id)
                 .onSuccess { profile ->
-                    uiState = ProfileUiState.Success(updatedUser, profile)
+                    _uiState.value = ProfileUiState.Success(updatedUser, profile)
                 }
                 .onFailure { e ->
-                    uiState = ProfileUiState.Error(e.message ?: "Failed to load profile")
+                    _uiState.value = ProfileUiState.Error(e.message ?: "Failed to load profile")
                 }
         }
     }

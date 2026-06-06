@@ -270,25 +270,6 @@ class GeminiAIService(
         }
     }
 
-    suspend fun translateText(text: String, sourceLang: String = "en", targetLang: String = "vi"): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val prompt = """
-                Bạn là một dịch giả chuyên nghiệp. Hãy dịch văn bản sau từ ngôn ngữ $sourceLang sang ngôn ngữ $targetLang.
-                Yêu cầu: Bản dịch tự nhiên, mượt mà, đúng ngữ cảnh và giữ nguyên định dạng của văn bản gốc.
-                Chỉ trả về duy nhất bản dịch, không thêm giải thích hay lời nói đầu nào.
-                
-                Văn bản cần dịch:
-                $text
-            """.trimIndent()
-            
-            val response = textModel.generateContent(prompt)
-            val textResponse = response.text ?: throw Exception("Empty response from AI")
-            Result.success(textResponse.trim())
-        } catch (e: Exception) {
-            Result.failure(mapGenerativeException(e))
-        }
-    }
-
     suspend fun lookupWordDetail(word: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val prompt = """
@@ -311,53 +292,6 @@ class GeminiAIService(
                   ],
                   "collocations": "Cụm từ đi kèm phổ biến",
                   "personalNote": "Ghi chú/Mẹo nhớ từ vựng này bằng tiếng Việt"
-                }
-            """.trimIndent()
-            
-            val response = textModel.generateContent(prompt)
-            val textResponse = response.text ?: throw Exception("Empty response from AI")
-            Result.success(textResponse.trim())
-        } catch (e: Exception) {
-            Result.failure(mapGenerativeException(e))
-        }
-    }
-
-    suspend fun translateAndExtractVocabulary(
-        text: String,
-        sourceLang: String = "en",
-        targetLang: String = "vi"
-    ): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val prompt = """
-                Bạn là một trợ lý dịch thuật và giảng dạy tiếng Anh thông minh.
-                Hãy thực hiện hai nhiệm vụ sau cho đoạn văn dưới đây:
-                Đoạn văn: "$text"
-                
-                Nhiệm vụ:
-                1. Dịch đoạn văn từ $sourceLang sang $targetLang. Bản dịch phải tự nhiên, mượt mà, đúng ngữ cảnh.
-                2. Phân tích và trích xuất từ 3 đến 5 từ vựng nổi bật hoặc quan trọng từ đoạn văn (những từ khó, từ khóa chính hoặc collocations hữu ích). Với mỗi từ trích xuất, cung cấp: từ vựng tiếng Anh, phiên âm IPA, từ loại, nghĩa tiếng Việt, định nghĩa ngắn bằng tiếng Anh, câu ví dụ chính trong đoạn văn hoặc câu ví dụ mới, collocations liên quan và một ghi chú ghi nhớ ngắn.
-                
-                Yêu cầu bắt buộc: Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc sau, KHÔNG ĐƯỢC có các thẻ markdown bao quanh:
-                {
-                  "translatedText": "Bản dịch đoạn văn...",
-                  "extractedWords": [
-                    {
-                      "word": "từ_vựng",
-                      "pronunciation": "phiên_âm_IPA",
-                      "definitions": [
-                        {
-                          "pos": "Noun/Verb/Adjective/...",
-                          "meaningVietnamese": "nghĩa tiếng Việt",
-                          "definitionEnglish": "English definition",
-                          "exampleSentence": "Câu ví dụ trong ngữ cảnh",
-                          "synonyms": ["từ đồng nghĩa"],
-                          "antonyms": ["từ trái nghĩa"]
-                        }
-                      ],
-                      "collocations": "cụm từ đi kèm nếu có",
-                      "personalNote": "ghi chú/giải thích ngắn về từ trong ngữ cảnh"
-                    }
-                  ]
                 }
             """.trimIndent()
             

@@ -32,10 +32,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.core.designsystem.component.shimmerEffect
@@ -61,7 +62,7 @@ data class RatingBreakdownItem(
 fun StatsScreen(
     viewModel: StatsViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
@@ -77,8 +78,6 @@ fun StatsScreen(
     }
 
     var showFreezeDialog by remember { mutableStateOf(false) }
-    var freezesLeft by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.streakFreezesLeft) }
-    var freezeEquipped by remember { mutableStateOf(com.edu.minlish.core.util.AppSettings.isStreakFreezeEquipped) }
 
     // State cho Rating Breakdown Bottom Sheet
     var selectedRatingLabel by remember { mutableStateOf("") }
@@ -87,36 +86,36 @@ fun StatsScreen(
     var showSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    when (uiState) {
+    when (val state = uiState) {
         is StatsUiState.Loading -> {
             StatsSkeleton()
         }
         is StatsUiState.Error -> {
             Box(modifier = Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
-                Text(text = uiState.message, color = Color.Red)
+                Text(text = state.message, color = Color.Red)
             }
         }
         is StatsUiState.Success -> {
             val statsList = listOf(
-                StatsItem(Icons.Default.Whatshot, "Current streak", "${uiState.currentStreak} days"),
-                StatsItem(Icons.Default.Book, "Total words", "${uiState.totalWords}"),
-                StatsItem(Icons.Default.Adjust, "Due today", "${uiState.dueTodayWords}"),
-                StatsItem(Icons.Default.WorkspacePremium, "Mastered", "${uiState.masteredWords}"),
-                StatsItem(Icons.Default.Psychology, "Retention", "${uiState.retentionRate.toInt()}%")
+                StatsItem(Icons.Default.Whatshot, "Current streak", "${state.currentStreak} days"),
+                StatsItem(Icons.Default.Book, "Total words", "${state.totalWords}"),
+                StatsItem(Icons.Default.Adjust, "Due today", "${state.dueTodayWords}"),
+                StatsItem(Icons.Default.WorkspacePremium, "Mastered", "${state.masteredWords}"),
+                StatsItem(Icons.Default.Psychology, "Retention", "${state.retentionRate.toInt()}%")
             )
 
-            val weeklyData = uiState.weeklyData
-            val todayIndex = uiState.weeklyActiveIndex
-            val monthlyData = uiState.monthlyData
-            val level = uiState.levelEstimate
+            val weeklyData = state.weeklyData
+            val todayIndex = state.weeklyActiveIndex
+            val monthlyData = state.monthlyData
+            val level = state.levelEstimate
 
-            val totalRated = uiState.easyCount + uiState.goodCount + uiState.hardCount + uiState.againCount
+            val totalRated = state.easyCount + state.goodCount + state.hardCount + state.againCount
             val breakdown = if (totalRated > 0) {
                 listOf(
-                    RatingBreakdownItem("Easy ✅", uiState.easyCount.toFloat() / totalRated, "${uiState.easyCount} reviews", "EASY", Color(0xFF2E7D32)),
-                    RatingBreakdownItem("Good 👍", uiState.goodCount.toFloat() / totalRated, "${uiState.goodCount} reviews", "GOOD", Color(0xFF1565C0)),
-                    RatingBreakdownItem("Hard 😓", uiState.hardCount.toFloat() / totalRated, "${uiState.hardCount} reviews", "HARD", Color(0xFFE65100)),
-                    RatingBreakdownItem("Again 🔁", uiState.againCount.toFloat() / totalRated, "${uiState.againCount} reviews", "AGAIN", Color(0xFFC62828))
+                    RatingBreakdownItem("Easy ✅", state.easyCount.toFloat() / totalRated, "${state.easyCount} reviews", "EASY", Color(0xFF2E7D32)),
+                    RatingBreakdownItem("Good 👍", state.goodCount.toFloat() / totalRated, "${state.goodCount} reviews", "GOOD", Color(0xFF1565C0)),
+                    RatingBreakdownItem("Hard 😓", state.hardCount.toFloat() / totalRated, "${state.hardCount} reviews", "HARD", Color(0xFFE65100)),
+                    RatingBreakdownItem("Again 🔁", state.againCount.toFloat() / totalRated, "${state.againCount} reviews", "AGAIN", Color(0xFFC62828))
                 )
             } else {
                 listOf(
@@ -282,7 +281,7 @@ fun StatsScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "You are on a ${uiState.currentStreak}-day streak!",
+                        text = "You are on a ${state.currentStreak}-day streak!",
                         color = Color(0xFF6B6B6B),
                         fontSize = 12.sp
                     )
@@ -291,14 +290,14 @@ fun StatsScreen(
                 Box(
                     modifier = Modifier
                         .background(
-                            color = if (freezeEquipped) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                            color = if (state.isFreezeEquipped) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
                             shape = RoundedCornerShape(100.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = if (freezeEquipped) "Equipped" else "$freezesLeft Freezes left",
-                        color = if (freezeEquipped) Color(0xFF2E7D32) else Color(0xFFE65100),
+                        text = if (state.isFreezeEquipped) "Equipped" else "${state.freezesLeft} Freezes left",
+                        color = if (state.isFreezeEquipped) Color(0xFF2E7D32) else Color(0xFFE65100),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -312,7 +311,7 @@ fun StatsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val days = weeklyData.map { it.label.take(1) }
-                val completedDays = uiState.weeklyCompletedDays
+                val completedDays = state.weeklyCompletedDays
 
                 days.forEachIndexed { index, day ->
                     val isDone = completedDays.getOrElse(index) { false }
@@ -369,10 +368,10 @@ fun StatsScreen(
                     .fillMaxWidth()
                     .height(44.dp)
                     .background(
-                        color = if (freezeEquipped) Color(0xFFF5F5F5) else Color(0xFF111111),
+                        color = if (state.isFreezeEquipped) Color(0xFFF5F5F5) else Color(0xFF111111),
                         shape = RoundedCornerShape(8.dp)
                     )
-                    .clickable(enabled = !freezeEquipped && freezesLeft > 0) {
+                    .clickable(enabled = !state.isFreezeEquipped && state.freezesLeft > 0) {
                         showFreezeDialog = true
                     },
                 contentAlignment = Alignment.Center
@@ -384,12 +383,12 @@ fun StatsScreen(
                     Icon(
                         imageVector = Icons.Default.AcUnit,
                         contentDescription = "Freeze",
-                        tint = if (freezeEquipped) Color(0xFF888888) else Color.White,
+                        tint = if (state.isFreezeEquipped) Color(0xFF888888) else Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = if (freezeEquipped) "Streak Protected Today" else "Equip Streak Freeze",
-                        color = if (freezeEquipped) Color(0xFF888888) else Color.White,
+                        text = if (state.isFreezeEquipped) "Streak Protected Today" else "Equip Streak Freeze",
+                        color = if (state.isFreezeEquipped) Color(0xFF888888) else Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -402,10 +401,7 @@ fun StatsScreen(
                 onDismissRequest = { showFreezeDialog = false },
                 confirmButton = {
                     TextButton(onClick = {
-                        freezeEquipped = true
-                        freezesLeft -= 1
-                        com.edu.minlish.core.util.AppSettings.isStreakFreezeEquipped = true
-                        com.edu.minlish.core.util.AppSettings.streakFreezesLeft = freezesLeft
+                        viewModel.equipStreakFreeze()
                         showFreezeDialog = false
                     }) {
                         Text("Equip", color = Color(0xFF111111), fontWeight = FontWeight.Bold)
@@ -518,7 +514,7 @@ fun StatsScreen(
             }
 
             breakdown.forEach { item ->
-                val wordsForRating = uiState.wordsByRating[item.ratingKey] ?: emptyList()
+                val wordsForRating = state.wordsByRating[item.ratingKey] ?: emptyList()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -716,13 +712,6 @@ private fun RatingWordsSheetContent(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
-}
-
-
-@Preview(showBackground = true)
-@Composable
-fun StatsScreenPreview() {
-    StatsScreen()
 }
 
 @Composable

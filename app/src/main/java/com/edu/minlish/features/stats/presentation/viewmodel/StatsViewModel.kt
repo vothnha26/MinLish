@@ -1,9 +1,6 @@
 package com.edu.minlish.features.stats.presentation.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.core.util.AppSettings
@@ -19,6 +16,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -59,7 +60,9 @@ sealed class StatsUiState {
         val weeklyCompletedDays: List<Boolean>,
         val monthlyData: List<BarChartData>,
         val levelEstimate: LevelEstimate,
-        val wordsByRating: Map<String, List<RatedWordItem>> = emptyMap()
+        val wordsByRating: Map<String, List<RatedWordItem>> = emptyMap(),
+        val freezesLeft: Int = AppSettings.streakFreezesLeft,
+        val isFreezeEquipped: Boolean = AppSettings.isStreakFreezeEquipped
     ) : StatsUiState() {
         val easyCount: Int get() = ratingBreakdown.easy
         val goodCount: Int get() = ratingBreakdown.good
@@ -75,8 +78,8 @@ class StatsViewModel(
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<StatsUiState>(StatsUiState.Loading)
-        private set
+    private val _uiState = MutableStateFlow<StatsUiState>(StatsUiState.Loading)
+    val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
 
     init {
         observeSessionData()
@@ -85,7 +88,7 @@ class StatsViewModel(
     private fun observeSessionData() {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = StatsUiState.Error("User not logged in")
+            _uiState.update { StatsUiState.Error("User not logged in") }
             return
         }
 
@@ -106,7 +109,7 @@ class StatsViewModel(
     fun loadStats() {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = StatsUiState.Error("User not logged in")
+            _uiState.update { StatsUiState.Error("User not logged in") }
             return
         }
 
@@ -116,6 +119,22 @@ class StatsViewModel(
                 com.edu.minlish.core.util.SessionDataManager.preFetchUserData(currentUser.id)
             } catch (e: Exception) {
                 Log.e("StatsViewModel", "Failed to refresh stats in background", e)
+            }
+        }
+    }
+
+    fun equipStreakFreeze() {
+        val currentState = _uiState.value
+        if (currentState is StatsUiState.Success && !currentState.isFreezeEquipped && currentState.freezesLeft > 0) {
+            val newFreezesLeft = currentState.freezesLeft - 1
+            AppSettings.streakFreezesLeft = newFreezesLeft
+            AppSettings.isStreakFreezeEquipped = true
+            
+            _uiState.update { 
+                currentState.copy(
+                    freezesLeft = newFreezesLeft,
+                    isFreezeEquipped = true
+                )
             }
         }
     }
@@ -163,23 +182,27 @@ class StatsViewModel(
             // Lấy danh sách từ theo rating từ logs
             val wordsByRating = buildWordsByRating(filteredLogs)
 
-            uiState = StatsUiState.Success(
-                totalWords = totalWords,
-                masteredWords = masteredWords,
-                learningWords = learningWords,
-                dueTodayWords = dueTodayWords,
-                retentionRate = retentionRate,
-                ratingBreakdown = ratingBreakdown,
-                currentStreak = currentStreak,
-                weeklyData = weeklyData,
-                weeklyActiveIndex = weeklyData.lastIndex.coerceAtLeast(0),
-                weeklyCompletedDays = weeklyCompletedDays,
-                monthlyData = monthlyData,
-                levelEstimate = levelEstimate,
-                wordsByRating = wordsByRating
-            )
+            _uiState.update { 
+                StatsUiState.Success(
+                    totalWords = totalWords,
+                    masteredWords = masteredWords,
+                    learningWords = learningWords,
+                    dueTodayWords = dueTodayWords,
+                    retentionRate = retentionRate,
+                    ratingBreakdown = ratingBreakdown,
+                    currentStreak = currentStreak,
+                    weeklyData = weeklyData,
+                    weeklyActiveIndex = weeklyData.lastIndex.coerceAtLeast(0),
+                    weeklyCompletedDays = weeklyCompletedDays,
+                    monthlyData = monthlyData,
+                    levelEstimate = levelEstimate,
+                    wordsByRating = wordsByRating,
+                    freezesLeft = AppSettings.streakFreezesLeft,
+                    isFreezeEquipped = AppSettings.isStreakFreezeEquipped
+                )
+            }
         } catch (e: Exception) {
-            uiState = StatsUiState.Error(e.message ?: "Failed to calculate stats")
+            _uiState.update { StatsUiState.Error(e.message ?: "Failed to calculate stats") }
         }
     }
 

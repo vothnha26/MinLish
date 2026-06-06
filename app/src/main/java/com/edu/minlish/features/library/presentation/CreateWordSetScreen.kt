@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
@@ -30,7 +31,11 @@ fun CreateWordSetScreen(
     onDeleteSuccess: (() -> Unit)? = null,
     viewModel: CreateSetViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val state = uiState
+    val title by viewModel.title.collectAsStateWithLifecycle()
+    val description by viewModel.description.collectAsStateWithLifecycle()
+    val category by viewModel.category.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(setId) {
@@ -40,7 +45,7 @@ fun CreateWordSetScreen(
     }
 
     LaunchedEffect(uiState) {
-        if (uiState is CreateSetUiState.Success) {
+        if (state is CreateSetUiState.Success) {
             onCreateSuccess()
         }
     }
@@ -93,15 +98,15 @@ fun CreateWordSetScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             MinLishTextField(
-                value = viewModel.title,
-                onValueChange = { viewModel.title = it },
+                value = title,
+                onValueChange = { viewModel.updateTitle(it) },
                 label = "Set Title",
                 placeholder = "e.g. Academic Vocabulary"
             )
 
             MinLishTextField(
-                value = viewModel.description,
-                onValueChange = { viewModel.description = it },
+                value = description,
+                onValueChange = { viewModel.updateDescription(it) },
                 label = "Description",
                 placeholder = "e.g. Important words for IELTS Writing Task 2"
             )
@@ -117,8 +122,8 @@ fun CreateWordSetScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("IELTS", "TOEIC", "General").forEach { cat ->
                         FilterChip(
-                            selected = viewModel.category == cat,
-                            onClick = { viewModel.category = cat },
+                            selected = category == cat,
+                            onClick = { viewModel.updateCategory(cat) },
                             label = { Text(cat) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Primary,
@@ -129,20 +134,20 @@ fun CreateWordSetScreen(
                 }
             }
 
-            if (uiState is CreateSetUiState.Error) {
-                Text(text = uiState.message, color = Color.Red, fontSize = 12.sp)
+            if (state is CreateSetUiState.Error) {
+                Text(text = state.message, color = Color.Red, fontSize = 12.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             MinLishButton(
-                text = if (uiState is CreateSetUiState.Loading) {
+                text = if (state is CreateSetUiState.Loading) {
                     if (setId != null) "Saving..." else "Creating..."
                 } else {
                     if (setId != null) "Save Changes" else "Create Set"
                 },
                 onClick = { viewModel.saveSet() },
-                enabled = viewModel.title.isNotBlank() && uiState !is CreateSetUiState.Loading,
+                enabled = title.isNotBlank() && state !is CreateSetUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
         }

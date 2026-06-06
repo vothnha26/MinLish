@@ -81,10 +81,6 @@ class AudioRecorder(private val context: Context) {
     /** Trả về số lần amplitude vượt ngưỡng (đo lường chất lượng giọng nói) */
     fun getAboveThresholdSampleCount(): Int = aboveThresholdSampleCount
 
-    fun getMaxAmplitudeObserved(): Int {
-        return maxAmplitudeObserved
-    }
-
     private fun tryRecord(outputFile: File?, useOptimalSettings: Boolean): Boolean {
         val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(context)

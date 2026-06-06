@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.notification.domain.model.Notification
@@ -32,7 +34,7 @@ fun NotificationListScreen(
     onBack: () -> Unit,
     viewModel: NotificationViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -53,19 +55,20 @@ fun NotificationListScreen(
                 .padding(paddingValues)
                 .background(Color.White)
         ) {
-            when (uiState) {
+            val state = uiState
+            when (state) {
                 is NotificationUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
                 }
                 is NotificationUiState.Error -> {
                     Text(
-                        text = uiState.message,
+                        text = state.message,
                         color = Color.Red,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
                 is NotificationUiState.Success -> {
-                    val notifications = uiState.notifications
+                    val notifications = state.notifications
                     if (notifications.isEmpty()) {
                         Column(
                             modifier = Modifier.align(Alignment.Center),

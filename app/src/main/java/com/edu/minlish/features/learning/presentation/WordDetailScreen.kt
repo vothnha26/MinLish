@@ -24,6 +24,7 @@ import com.edu.minlish.features.learning.presentation.viewmodel.WordDetailUiStat
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.util.AudioPlayer
 
 @Composable
@@ -33,7 +34,8 @@ fun WordDetailScreen(
     onEditClick: (String, String) -> Unit,
     viewModel: WordDetailViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val state = uiState
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(wordId) {
@@ -52,7 +54,7 @@ fun WordDetailScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        val word = (uiState as? WordDetailUiState.Success)?.word
+                        val word = (state as? WordDetailUiState.Success)?.word
                         if (word != null) onEditClick(word.vocabularySetId, word.id)
                     }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.Gray)
@@ -64,7 +66,7 @@ fun WordDetailScreen(
             )
         }
     ) { padding ->
-        when (uiState) {
+        when (state) {
             is WordDetailUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Primary)
@@ -72,11 +74,11 @@ fun WordDetailScreen(
             }
             is WordDetailUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = uiState.message, color = Color.Red)
+                    Text(text = state.message, color = Color.Red)
                 }
             }
             is WordDetailUiState.Success -> {
-                val word = uiState.word
+                val word = state.word
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

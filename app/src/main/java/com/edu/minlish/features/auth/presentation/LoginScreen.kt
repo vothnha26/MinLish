@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
@@ -42,7 +43,7 @@ fun LoginScreen(
     onBack: () -> Unit,
     onLogin: () -> Unit,
     onRegister: () -> Unit,
-    onProfileSetup: () -> Unit, // Thêm mới
+    onProfileSetup: () -> Unit,
     onForgotPassword: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
@@ -73,45 +74,19 @@ fun LoginScreen(
         }
     }
 
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-    var attempted by remember { mutableStateOf(false) }
-
-    val uiState = viewModel.uiState
-
-    fun validate(): Boolean {
-        var isValid = true
-        if (!email.contains("@")) {
-            emailError = "Please enter a valid email address."
-            isValid = false
-        } else {
-            emailError = null
-        }
-
-        if (password.length < 6) {
-            passwordError = "Password must be at least 6 characters."
-            isValid = false
-        } else {
-            passwordError = null
-        }
-        return isValid
-    }
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val password by viewModel.password.collectAsStateWithLifecycle()
+    val showPassword by viewModel.showPassword.collectAsStateWithLifecycle()
+    val emailError by viewModel.emailError.collectAsStateWithLifecycle()
+    val passwordError by viewModel.passwordError.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     fun handleLogin() {
-        attempted = true
-        if (validate()) {
-            viewModel.login(
-                email = email,
-                password = password,
-                onNavigate = { isSetupComplete ->
-                    if (isSetupComplete) onLogin() else onProfileSetup()
-                }
-            )
-        }
+        viewModel.login(
+            onNavigate = { isSetupComplete ->
+                if (isSetupComplete) onLogin() else onProfileSetup()
+            }
+        )
     }
 
     Column(
@@ -168,7 +143,7 @@ fun LoginScreen(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = uiState.message,
+                            text = (uiState as AuthUiState.Error).message,
                             color = Color.Red,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(12.dp)
@@ -179,10 +154,7 @@ fun LoginScreen(
                 // Fields
                 MinLishTextField(
                     value = email,
-                    onValueChange = {
-                        email = it
-                        if (attempted) validate()
-                    },
+                    onValueChange = { viewModel.updateEmail(it) },
                     label = "Email",
                     placeholder = "you@email.com",
                     modifier = Modifier.padding(bottom = 4.dp)
@@ -200,10 +172,7 @@ fun LoginScreen(
 
                 MinLishTextField(
                     value = password,
-                    onValueChange = {
-                        password = it
-                        if (attempted) validate()
-                    },
+                    onValueChange = { viewModel.updatePassword(it) },
                     label = "Password",
                     placeholder = "••••••••",
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -211,7 +180,7 @@ fun LoginScreen(
                         Text(
                             text = if (showPassword) "Hide" else "Show",
                             style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFAAAAAA)),
-                            modifier = Modifier.clickable { showPassword = !showPassword }
+                            modifier = Modifier.clickable { viewModel.toggleShowPassword() }
                         )
                     }
                 )

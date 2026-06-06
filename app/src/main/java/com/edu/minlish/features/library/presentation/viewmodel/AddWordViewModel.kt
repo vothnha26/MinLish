@@ -1,9 +1,5 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.library.data.DictionaryEntry
@@ -18,9 +14,13 @@ import com.edu.minlish.features.library.data.repository.DatamuseCollocationStrat
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import com.edu.minlish.core.ai.AIModule
 import com.edu.minlish.core.ai.model.AIAutoFillResult
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.update
 
 sealed class AddWordUiState {
     object Idle : AddWordUiState()
@@ -35,79 +35,114 @@ class AddWordViewModel(
     private val collocationStrategy: CollocationStrategy = DatamuseCollocationStrategy()
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<AddWordUiState>(AddWordUiState.Idle)
-        private set
+    private val _uiState = MutableStateFlow<AddWordUiState>(AddWordUiState.Idle)
+    val uiState: StateFlow<AddWordUiState> = _uiState.asStateFlow()
 
-    var loadedWordId by mutableStateOf<String?>(null)
+    private val _loadedWordId = MutableStateFlow<String?>(null)
+    val loadedWordId: StateFlow<String?> = _loadedWordId.asStateFlow()
+    
     private var isInitialized = false
 
     fun initEditMode(wordId: String) {
         if (isInitialized) return
         isInitialized = true
-        loadedWordId = wordId
+        _loadedWordId.update { wordId }
         viewModelScope.launch {
-            uiState = AddWordUiState.Loading
+            _uiState.update { AddWordUiState.Loading }
             repository.getWordById(wordId)
                 .onSuccess { word ->
-                    wordText = word.word
-                    pronunciationText = word.pronunciation
-                    audioUrl = word.audioUrl
-                    imageUrl = word.imageUrl
-                    collocationText = word.collocations
-                    personalNoteText = word.personalNote
-                    definitions.clear()
-                    definitions.addAll(word.definitions)
-                    if (definitions.isEmpty()) {
-                        definitions.add(WordDefinition())
+                    _wordText.update { word.word }
+                    _pronunciationText.update { word.pronunciation }
+                    _audioUrl.update { word.audioUrl }
+                    _imageUrl.update { word.imageUrl }
+                    _collocationText.update { word.collocations }
+                    _personalNoteText.update { word.personalNote }
+                    
+                    val list = word.definitions.toMutableList()
+                    if (list.isEmpty()) {
+                        list.add(WordDefinition())
                     }
-                    uiState = AddWordUiState.Idle
+                    _definitions.update { list }
+                    _uiState.update { AddWordUiState.Idle }
                 }
                 .onFailure { e ->
-                    uiState = AddWordUiState.Error(e.message ?: "Failed to load vocabulary for editing")
+                    _uiState.update { AddWordUiState.Error(e.message ?: "Failed to load vocabulary for editing") }
                 }
         }
     }
 
-    var wordText by mutableStateOf("")
-    var pronunciationText by mutableStateOf("")
-    var audioUrl by mutableStateOf("")
-    var imageUrl by mutableStateOf("")
-    var collocationText by mutableStateOf("")
-    var personalNoteText by mutableStateOf("")
+    private val _wordText = MutableStateFlow("")
+    val wordText: StateFlow<String> = _wordText.asStateFlow()
+
+    private val _pronunciationText = MutableStateFlow("")
+    val pronunciationText: StateFlow<String> = _pronunciationText.asStateFlow()
+
+    private val _audioUrl = MutableStateFlow("")
+    val audioUrl: StateFlow<String> = _audioUrl.asStateFlow()
+
+    private val _imageUrl = MutableStateFlow("")
+    val imageUrl: StateFlow<String> = _imageUrl.asStateFlow()
+
+    private val _collocationText = MutableStateFlow("")
+    val collocationText: StateFlow<String> = _collocationText.asStateFlow()
+
+    private val _personalNoteText = MutableStateFlow("")
+    val personalNoteText: StateFlow<String> = _personalNoteText.asStateFlow()
 
     // List of dynamic definitions
-    var definitions = mutableStateListOf<WordDefinition>(WordDefinition())
+    private val _definitions = MutableStateFlow<List<WordDefinition>>(listOf(WordDefinition()))
+    val definitions: StateFlow<List<WordDefinition>> = _definitions.asStateFlow()
 
     // Selection management for Smart Search
-    var searchResults by mutableStateOf<List<DictionaryEntry>>(emptyList())
-    var selectionItems by mutableStateOf<List<SelectionItem>>(emptyList())
-    var showSelectionDialog by mutableStateOf(false)
-    var selectedItemIndex by mutableStateOf(-1)
+    private val _searchResults = MutableStateFlow<List<DictionaryEntry>>(emptyList())
+    val searchResults: StateFlow<List<DictionaryEntry>> = _searchResults.asStateFlow()
+
+    private val _selectionItems = MutableStateFlow<List<SelectionItem>>(emptyList())
+    val selectionItems: StateFlow<List<SelectionItem>> = _selectionItems.asStateFlow()
+
+    private val _showSelectionDialog = MutableStateFlow(false)
+    val showSelectionDialog: StateFlow<Boolean> = _showSelectionDialog.asStateFlow()
+
+    private val _selectedItemIndex = MutableStateFlow(-1)
+    val selectedItemIndex: StateFlow<Int> = _selectedItemIndex.asStateFlow()
+
+    fun updateWordText(value: String) { _wordText.update { value } }
+    fun updatePronunciationText(value: String) { _pronunciationText.update { value } }
+    fun updateAudioUrl(value: String) { _audioUrl.update { value } }
+    fun updateImageUrl(value: String) { _imageUrl.update { value } }
+    fun updateCollocationText(value: String) { _collocationText.update { value } }
+    fun updatePersonalNoteText(value: String) { _personalNoteText.update { value } }
+    fun updateShowSelectionDialog(value: Boolean) { _showSelectionDialog.update { value } }
+    fun updateSelectedItemIndex(value: Int) { _selectedItemIndex.update { value } }
 
     fun addDefinitionField() {
-        definitions.add(WordDefinition())
+        _definitions.update { it + WordDefinition() }
     }
 
     fun removeDefinitionField(index: Int) {
-        if (definitions.size > 1) {
-            definitions.removeAt(index)
+        _definitions.update { 
+            if (it.size > 1) {
+                it.toMutableList().apply { removeAt(index) }
+            } else it
         }
     }
 
     fun updateDefinition(index: Int, updated: WordDefinition) {
-        definitions[index] = updated
+        _definitions.update { 
+            it.toMutableList().apply { this[index] = updated }
+        }
     }
 
     fun smartSearch() {
-        if (wordText.isBlank()) return
+        if (_wordText.value.isBlank()) return
 
         viewModelScope.launch {
-            uiState = AddWordUiState.Loading
+            _uiState.update { AddWordUiState.Loading }
             
             // Auto Image from LoremFlickr (keyword-based image search)
-            val cleanWord = wordText.lowercase().trim()
+            val cleanWord = _wordText.value.lowercase().trim()
             val lockSeed = Math.abs(cleanWord.hashCode())
-            imageUrl = "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed"
+            _imageUrl.update { "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed" }
             
             // Fetch translation and collocations in parallel with dictionary details
             val translationDeferred = async {
@@ -121,7 +156,7 @@ class AddWordViewModel(
             repository.fetchWordDetails(cleanWord)
                 .onSuccess { entries ->
                     if (entries.isNotEmpty()) {
-                        searchResults = entries
+                        _searchResults.update { entries }
                         
                         // Await translation and collocations
                         val translationResult = translationDeferred.await()
@@ -129,7 +164,7 @@ class AddWordViewModel(
                         
                         // Populate collocations text separated by comma
                         if (collocationsResult.isNotEmpty()) {
-                            collocationText = collocationsResult.joinToString(", ")
+                            _collocationText.update { collocationsResult.joinToString(", ") }
                         }
                         
                         // Populate pronunciation and audio directly
@@ -137,10 +172,10 @@ class AddWordViewModel(
                         val phonetic = firstEntry?.phonetic 
                             ?: firstEntry?.phonetics?.firstOrNull { !it.text.isNullOrBlank() }?.text 
                             ?: ""
-                        pronunciationText = phonetic
+                        _pronunciationText.update { phonetic }
 
                         val audio = firstEntry?.phonetics?.firstOrNull { !it.audio.isNullOrBlank() }?.audio ?: ""
-                        audioUrl = if (audio.startsWith("//")) "https:$audio" else audio
+                        _audioUrl.update { if (audio.startsWith("//")) "https:$audio" else audio }
 
                         // For each part of speech, take at most 3 definitions.
                         val rawItems = mutableListOf<SelectionItem>()
@@ -171,29 +206,29 @@ class AddWordViewModel(
                             }
                         }
                         
-                        selectionItems = rawItems
-                        showSelectionDialog = true
-                        uiState = AddWordUiState.Idle
+                        _selectionItems.update { rawItems }
+                        _showSelectionDialog.update { true }
+                        _uiState.update { AddWordUiState.Idle }
                     } else {
-                        uiState = AddWordUiState.Error("Word not found")
+                        _uiState.update { AddWordUiState.Error("Word not found") }
                     }
                 }
                 .onFailure { e ->
-                    uiState = AddWordUiState.Error(e.message ?: "Failed to fetch word details")
+                    _uiState.update { AddWordUiState.Error(e.message ?: "Failed to fetch word details") }
                 }
         }
     }
 
     fun aiAutoFill() {
-        if (wordText.isBlank()) return
+        if (_wordText.value.isBlank()) return
         
         viewModelScope.launch {
-            uiState = AddWordUiState.Loading
+            _uiState.update { AddWordUiState.Loading }
             
             // Auto Image from LoremFlickr
-            val cleanWord = wordText.lowercase().trim()
+            val cleanWord = _wordText.value.lowercase().trim()
             val lockSeed = Math.abs(cleanWord.hashCode())
-            imageUrl = "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed"
+            _imageUrl.update { "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed" }
             
             val result = AIModule.geminiService.generateAutoFillContent(cleanWord)
             
@@ -210,22 +245,21 @@ class AddWordViewModel(
                     
                     val autoFillResult = Gson().fromJson(cleanJson, AIAutoFillResult::class.java)
                     
-                    wordText = autoFillResult.word.ifBlank { wordText }
-                    pronunciationText = autoFillResult.pronunciation
-                    collocationText = autoFillResult.collocations
-                    personalNoteText = autoFillResult.personalNote
+                    _wordText.update { autoFillResult.word.ifBlank { it } }
+                    _pronunciationText.update { autoFillResult.pronunciation }
+                    _collocationText.update { autoFillResult.collocations }
+                    _personalNoteText.update { autoFillResult.personalNote }
                     
                     if (autoFillResult.definitions.isNotEmpty()) {
-                        definitions.clear()
-                        definitions.addAll(autoFillResult.definitions)
+                        _definitions.update { autoFillResult.definitions }
                     }
                     
-                    uiState = AddWordUiState.Idle
+                    _uiState.update { AddWordUiState.Idle }
                 } catch (e: Exception) {
-                    uiState = AddWordUiState.Error("Lỗi phân tích dữ liệu AI: ${e.message}")
+                    _uiState.update { AddWordUiState.Error("Lỗi phân tích dữ liệu AI: ${e.message}") }
                 }
             }.onFailure { e ->
-                uiState = AddWordUiState.Error("AI Error: ${e.message}")
+                _uiState.update { AddWordUiState.Error("AI Error: ${e.message}") }
             }
         }
     }
@@ -233,67 +267,70 @@ class AddWordViewModel(
     fun importSelectedDefinitions(selected: List<SelectionItem>) {
         if (selected.isEmpty()) return
 
-        // 1. Clear initial empty state if needed
-        if (definitions.size == 1 && definitions[0].definitionEnglish.isBlank() && definitions[0].meaningVietnamese.isBlank()) {
-            definitions.clear()
-        }
+        _definitions.update { currentList ->
+            val newList = currentList.toMutableList()
+            // 1. Clear initial empty state if needed
+            if (newList.size == 1 && newList[0].definitionEnglish.isBlank() && newList[0].meaningVietnamese.isBlank()) {
+                newList.clear()
+            }
 
-        // 2. Add selected definitions
-        selected.forEach { item ->
-            val entry = searchResults.getOrNull(item.entryIndex)
-            val meaning = entry?.meanings?.getOrNull(item.meaningIndex)
-            val definition = meaning?.definitions?.getOrNull(item.definitionIndex)
-            
-            val allSyns = ((definition?.synonyms ?: emptyList()) + (meaning?.synonyms ?: emptyList()))
-                .distinct()
-                .take(5)
+            // 2. Add selected definitions
+            selected.forEach { item ->
+                val entry = _searchResults.value.getOrNull(item.entryIndex)
+                val meaning = entry?.meanings?.getOrNull(item.meaningIndex)
+                val definition = meaning?.definitions?.getOrNull(item.definitionIndex)
                 
-            val allAnts = ((definition?.antonyms ?: emptyList()) + (meaning?.antonyms ?: emptyList()))
-                .distinct()
-                .take(5)
-            
-            definitions.add(
-                WordDefinition(
-                    pos = item.partOfSpeech,
-                    definitionEnglish = item.definition,
-                    meaningVietnamese = item.meaningVietnamese,
-                    exampleSentence = item.example ?: "",
-                    synonyms = allSyns,
-                    antonyms = allAnts
+                val allSyns = ((definition?.synonyms ?: emptyList()) + (meaning?.synonyms ?: emptyList()))
+                    .distinct()
+                    .take(5)
+                    
+                val allAnts = ((definition?.antonyms ?: emptyList()) + (meaning?.antonyms ?: emptyList()))
+                    .distinct()
+                    .take(5)
+                
+                newList.add(
+                    WordDefinition(
+                        pos = item.partOfSpeech,
+                        definitionEnglish = item.definition,
+                        meaningVietnamese = item.meaningVietnamese,
+                        exampleSentence = item.example ?: "",
+                        synonyms = allSyns,
+                        antonyms = allAnts
+                    )
                 )
-            )
+            }
+            newList
         }
-        
-        showSelectionDialog = false
+        _showSelectionDialog.update { false }
     }
 
     fun playAudio() {
-        if (audioUrl.isNotBlank() || wordText.isNotBlank()) {
-            com.edu.minlish.core.util.AudioPlayer.play(audioUrl, wordText)
+        if (_audioUrl.value.isNotBlank() || _wordText.value.isNotBlank()) {
+            com.edu.minlish.core.util.AudioPlayer.play(_audioUrl.value, _wordText.value)
         }
     }
 
     fun saveWord(setId: String) {
-        if (wordText.isBlank() || definitions.all { it.meaningVietnamese.isBlank() && it.definitionEnglish.isBlank() }) {
-            uiState = AddWordUiState.Error("Word and at least one meaning are required")
+        if (_wordText.value.isBlank() || _definitions.value.all { it.meaningVietnamese.isBlank() && it.definitionEnglish.isBlank() }) {
+            _uiState.update { AddWordUiState.Error("Word and at least one meaning are required") }
             return
         }
 
         viewModelScope.launch {
-            uiState = AddWordUiState.Loading
+            _uiState.update { AddWordUiState.Loading }
             val word = VocabularyWord(
-                id = loadedWordId ?: "",
+                id = _loadedWordId.value ?: "",
                 vocabularySetId = setId,
-                word = wordText,
-                pronunciation = pronunciationText,
-                audioUrl = audioUrl,
-                imageUrl = imageUrl,
-                definitions = definitions.filter { it.meaningVietnamese.isNotBlank() || it.definitionEnglish.isNotBlank() },
-                collocations = collocationText,
-                personalNote = personalNoteText
+                word = _wordText.value,
+                pronunciation = _pronunciationText.value,
+                audioUrl = _audioUrl.value,
+                imageUrl = _imageUrl.value,
+                definitions = _definitions.value.filter { it.meaningVietnamese.isNotBlank() || it.definitionEnglish.isNotBlank() },
+                collocations = _collocationText.value,
+                personalNote = _personalNoteText.value
             )
 
-            val result = if (loadedWordId != null) {
+            val result = if (_loadedWordId.value != null) {
                 repository.updateWord(word)
             } else {
                 repository.addWord(word)
@@ -301,17 +338,17 @@ class AddWordViewModel(
 
             result
                 .onSuccess {
-                    uiState = AddWordUiState.Success
+                    _uiState.update { AddWordUiState.Success }
                 }
                 .onFailure { e ->
-                    uiState = AddWordUiState.Error(e.message ?: "Failed to save word")
+                    _uiState.update { AddWordUiState.Error(e.message ?: "Failed to save word") }
                 }
         }
     }
 
     fun resetError() {
-        if (uiState is AddWordUiState.Error) {
-            uiState = AddWordUiState.Idle
+        if (_uiState.value is AddWordUiState.Error) {
+            _uiState.value = AddWordUiState.Idle
         }
     }
 }

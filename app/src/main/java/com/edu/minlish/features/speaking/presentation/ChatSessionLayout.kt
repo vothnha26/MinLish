@@ -31,6 +31,8 @@ import com.edu.minlish.features.speaking.domain.model.SpeakingChatMessage
 import com.edu.minlish.features.speaking.presentation.viewmodel.SpeakingViewModel
 import com.edu.minlish.features.speaking.presentation.viewmodel.SpeakingUiState
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 @Composable
 fun ChatSessionLayout(
     viewModel: SpeakingViewModel,
@@ -38,11 +40,13 @@ fun ChatSessionLayout(
     onRecordClick: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val chatMessages by viewModel.chatMessages.collectAsStateWithLifecycle()
+    val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
 
     // Automatically scroll to bottom when a new message appears
-    LaunchedEffect(viewModel.chatMessages.size) {
-        if (viewModel.chatMessages.isNotEmpty()) {
-            listState.animateScrollToItem(viewModel.chatMessages.size - 1)
+    LaunchedEffect(chatMessages.size) {
+        if (chatMessages.isNotEmpty()) {
+            listState.animateScrollToItem(chatMessages.size - 1)
         }
     }
 
@@ -64,7 +68,7 @@ fun ChatSessionLayout(
             )
             TextButton(
                 onClick = { viewModel.endSessionAndGetReport() },
-                enabled = uiState is SpeakingUiState.SessionActive && viewModel.chatMessages.isNotEmpty()
+                enabled = uiState is SpeakingUiState.SessionActive && chatMessages.isNotEmpty()
             ) {
                 Text(
                     text = "End & Get Report",
@@ -85,7 +89,7 @@ fun ChatSessionLayout(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            items(viewModel.chatMessages) { message ->
+            items(chatMessages) { message ->
                 ChatMessageItem(
                     message = message,
                     onSpeakClick = { viewModel.speak(message.text) }
@@ -147,7 +151,6 @@ fun ChatSessionLayout(
                     }
                     else -> {
                         // Mic Recording button
-                        val isRecording = viewModel.isRecording
                         RecordAudioControl(
                             isRecording = isRecording,
                             onClick = onRecordClick

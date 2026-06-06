@@ -26,6 +26,8 @@ import coil.compose.AsyncImage
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
 import com.edu.minlish.core.designsystem.theme.Primary
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AddWordViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AddWordUiState
 import com.edu.minlish.features.library.domain.model.WordDefinition
@@ -40,7 +42,16 @@ fun AddWordScreen(
     onAddSuccess: () -> Unit,
     viewModel: AddWordViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val wordText by viewModel.wordText.collectAsStateWithLifecycle()
+    val pronunciationText by viewModel.pronunciationText.collectAsStateWithLifecycle()
+    val audioUrl by viewModel.audioUrl.collectAsStateWithLifecycle()
+    val imageUrl by viewModel.imageUrl.collectAsStateWithLifecycle()
+    val collocationText by viewModel.collocationText.collectAsStateWithLifecycle()
+    val personalNoteText by viewModel.personalNoteText.collectAsStateWithLifecycle()
+    val definitions by viewModel.definitions.collectAsStateWithLifecycle()
+    val showSelectionDialog by viewModel.showSelectionDialog.collectAsStateWithLifecycle()
+    val selectionItems by viewModel.selectionItems.collectAsStateWithLifecycle()
 
     // Tự động tải thông tin từ cũ lên nếu có truyền wordId (chế độ Edit)
     LaunchedEffect(wordId) {
@@ -92,9 +103,9 @@ fun AddWordScreen(
                     .padding(16.dp)
                     .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // [UI] Ảnh minh họa của từ vựng (chỉ hiển thị khi đã có link ảnh từ API/AI)
-                    if (viewModel.imageUrl.isNotBlank()) {
+                    if (imageUrl.isNotBlank()) {
                         AsyncImage(
-                            model = viewModel.imageUrl,
+                            model = imageUrl,
                             contentDescription = "Word Image",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -108,7 +119,7 @@ fun AddWordScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // [UI] Ô nhập từ vựng gốc (Word)
                         Box(modifier = Modifier.weight(1f)) {
-                            MinLishTextField(value = viewModel.wordText, onValueChange = { viewModel.wordText = it }, label = "Word", placeholder = "e.g. Resilience")
+                            MinLishTextField(value = wordText, onValueChange = { viewModel.updateWordText(it) }, label = "Word", placeholder = "e.g. Resilience")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         // [UI] Nút tìm kiếm (kính lúp) - dùng tra cứu nhanh qua Dictionary API bên ngoài
@@ -137,10 +148,10 @@ fun AddWordScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // [UI] Ô nhập phiên âm của từ (Pronunciation)
                         Box(modifier = Modifier.weight(1f)) {
-                            MinLishTextField(value = viewModel.pronunciationText, onValueChange = { viewModel.pronunciationText = it }, label = "Pronunciation", placeholder = "/rɪˈzɪl.jəns/")
+                            MinLishTextField(value = pronunciationText, onValueChange = { viewModel.updatePronunciationText(it) }, label = "Pronunciation", placeholder = "/rɪˈzɪl.jəns/")
                         }
                         // [UI] Nút loa phát âm thanh (Play Audio) - chỉ xuất hiện khi đã tìm được link file âm thanh phát âm từ API
-                        if (viewModel.audioUrl.isNotBlank()) {
+                        if (audioUrl.isNotBlank()) {
                             IconButton(onClick = { viewModel.playAudio() }) {
                                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Play Audio", tint = Primary)
                             }
@@ -161,12 +172,12 @@ fun AddWordScreen(
             }
 
             // Duyệt và hiển thị danh sách các định nghĩa/nghĩa của từ (mỗi từ có thể có nhiều nghĩa)
-            viewModel.definitions.forEachIndexed { index, definition ->
+            definitions.forEachIndexed { index, definition ->
                 DefinitionCard(
                     definition = definition,
                     onUpdate = { updated -> viewModel.updateDefinition(index, updated) },
                     onDelete = { viewModel.removeDefinitionField(index) },
-                    showDelete = viewModel.definitions.size > 1
+                    showDelete = definitions.size > 1
                 )
             }
 
@@ -180,9 +191,9 @@ fun AddWordScreen(
                     .padding(16.dp)
                     .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // [UI] Ô nhập cụm từ hay đi kèm (Collocations)
-                    MinLishTextField(value = viewModel.collocationText, onValueChange = { viewModel.collocationText = it }, label = "Collocations", placeholder = "e.g. show resilience, built-in resilience")
+                    MinLishTextField(value = collocationText, onValueChange = { viewModel.updateCollocationText(it) }, label = "Collocations", placeholder = "e.g. show resilience, built-in resilience")
                     // [UI] Ô nhập ghi chú cá nhân của người học (Personal Note)
-                    MinLishTextField(value = viewModel.personalNoteText, onValueChange = { viewModel.personalNoteText = it }, label = "Personal Note", placeholder = "Used in psychology and engineering.")
+                    MinLishTextField(value = personalNoteText, onValueChange = { viewModel.updatePersonalNoteText(it) }, label = "Personal Note", placeholder = "Used in psychology and engineering.")
                 }
             }
 
@@ -192,13 +203,13 @@ fun AddWordScreen(
             MinLishButton(
                 text = if (wordId != null) "Save Changes" else "Save Word",
                 onClick = { viewModel.saveWord(setId) },
-                enabled = viewModel.wordText.isNotBlank() && uiState !is AddWordUiState.Loading,
+                enabled = wordText.isNotBlank() && uiState !is AddWordUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
             
             // [UI] Text hiển thị thông báo lỗi màu đỏ nếu quá trình Lưu/Gọi API xảy ra sự cố
             if (uiState is AddWordUiState.Error) {
-                Text(text = uiState.message, color = Color.Red, fontSize = 14.sp, modifier = Modifier
+                Text(text = (uiState as AddWordUiState.Error).message, color = Color.Red, fontSize = 14.sp, modifier = Modifier
                     .fillMaxWidth()
                     .clickable { viewModel.resetError() })
             }
@@ -207,10 +218,10 @@ fun AddWordScreen(
         }
     }
 
-    if (viewModel.showSelectionDialog) {
+    if (showSelectionDialog) {
         DefinitionSelectionDialog(
-            selectionItems = viewModel.selectionItems,
-            onDismiss = { viewModel.showSelectionDialog = false },
+            selectionItems = selectionItems,
+            onDismiss = { viewModel.updateShowSelectionDialog(false) },
             onConfirm = { selected ->
                 viewModel.importSelectedDefinitions(selected)
             }

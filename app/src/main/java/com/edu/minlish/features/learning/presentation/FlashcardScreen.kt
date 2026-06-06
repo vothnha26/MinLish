@@ -30,6 +30,7 @@ import com.edu.minlish.features.learning.presentation.viewmodel.FlashcardUiState
 import com.edu.minlish.features.library.domain.model.WordDefinition
 
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.util.AudioPlayer
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +41,11 @@ fun FlashcardScreen(
     onPlayQuiz: (String?) -> Unit,
     viewModel: FlashcardViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentIndex by viewModel.currentIndex.collectAsStateWithLifecycle()
+    val isFlipped by viewModel.isFlipped.collectAsStateWithLifecycle()
+    val isSubmittingRating by viewModel.isSubmittingRating.collectAsStateWithLifecycle()
+
     val normalizedSetId = setId
         ?.takeIf { it.isNotBlank() && it != "{setId}" }
 
@@ -71,12 +76,12 @@ fun FlashcardScreen(
                 .padding(padding)
                 .background(Color(0xFFF8F8F8))
         ) {
-            when (uiState) {
+            when (val state = uiState) {
                 is FlashcardUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
                 }
                 is FlashcardUiState.Error -> {
-                    Text(text = uiState.message, color = Color.Red, modifier = Modifier.align(Alignment.Center))
+                    Text(text = state.message, color = Color.Red, modifier = Modifier.align(Alignment.Center))
                 }
                 is FlashcardUiState.Finished -> {
                     StudyFinishedSession(
@@ -86,7 +91,8 @@ fun FlashcardScreen(
                     )
                 }
                 is FlashcardUiState.Success -> {
-                    val currentPair = uiState.words[viewModel.currentIndex]
+                    val successState = state
+                    val currentPair = successState.words[currentIndex]
                     val word = currentPair.first
                     
                     Column(
@@ -95,14 +101,14 @@ fun FlashcardScreen(
                     ) {
                         // Progress Info
                         LinearProgressIndicator(
-                            progress = { (viewModel.currentIndex + 1).toFloat() / uiState.words.size },
+                            progress = { (currentIndex + 1).toFloat() / successState.words.size },
                             modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                             color = Primary,
                             trackColor = Color(0xFFE5E5E5)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Word ${viewModel.currentIndex + 1} of ${uiState.words.size}",
+                            text = "Word ${currentIndex + 1} of ${successState.words.size}",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -115,16 +121,16 @@ fun FlashcardScreen(
                             definitions = word.definitions,
                             pronunciation = word.pronunciation,
                             audioUrl = word.audioUrl,
-                            isFlipped = viewModel.isFlipped,
+                            isFlipped = isFlipped,
                             onFlip = { viewModel.onFlip() }
                         )
                         
                         Spacer(modifier = Modifier.weight(1f))
                         
                         // Rating Buttons (Only show when flipped)
-                        if (viewModel.isFlipped) {
+                        if (isFlipped) {
                             RatingButtons(
-                                enabled = !viewModel.isSubmittingRating,
+                                enabled = !isSubmittingRating,
                                 onRate = { rating -> viewModel.submitRating(rating) }
                             )
                         } else {

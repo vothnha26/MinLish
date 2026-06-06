@@ -27,6 +27,7 @@ import com.edu.minlish.features.auth.presentation.components.LockIconDrawing
 import com.edu.minlish.features.auth.presentation.components.EnvelopeIconDrawing
 import kotlinx.coroutines.delay
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.auth.presentation.viewmodel.AuthUiState
 import com.edu.minlish.features.auth.presentation.viewmodel.AuthViewModel
@@ -42,7 +43,8 @@ fun ForgotPasswordScreen(
     var countdown by remember { mutableStateOf(59) }
     var canResend by remember { mutableStateOf(false) }
     
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val state = uiState
 
     LaunchedEffect(sent, countdown) {
         if (!sent) return@LaunchedEffect
@@ -144,9 +146,9 @@ fun ForgotPasswordScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
-                if (uiState is AuthUiState.Error) {
+                if (state is AuthUiState.Error) {
                     Text(
-                        text = uiState.message,
+                        text = state.message,
                         color = Color.Red,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
@@ -156,9 +158,9 @@ fun ForgotPasswordScreen(
                 }
 
                 MinLishButton(
-                    text = if (uiState is AuthUiState.Loading) "Sending..." else "Send reset link",
+                    text = if (state is AuthUiState.Loading) "Sending..." else "Send reset link",
                     onClick = { handleSend() },
-                    enabled = email.isNotEmpty() && uiState !is AuthUiState.Loading,
+                    enabled = email.isNotEmpty() && state !is AuthUiState.Loading,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 

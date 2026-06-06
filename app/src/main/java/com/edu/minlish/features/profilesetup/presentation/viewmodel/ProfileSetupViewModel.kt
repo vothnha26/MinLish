@@ -1,8 +1,5 @@
 package com.edu.minlish.features.profilesetup.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
@@ -11,6 +8,9 @@ import com.edu.minlish.features.profilesetup.data.repository.FirestoreProfileRep
 import com.edu.minlish.features.profilesetup.domain.model.UserLearningStats
 import com.edu.minlish.features.profilesetup.domain.model.UserProfile
 import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 sealed class ProfileSetupUiState {
@@ -25,29 +25,61 @@ class ProfileSetupViewModel(
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<ProfileSetupUiState>(ProfileSetupUiState.Idle)
-        private set
+    private val _uiState = MutableStateFlow<ProfileSetupUiState>(ProfileSetupUiState.Idle)
+    val uiState: StateFlow<ProfileSetupUiState> = _uiState.asStateFlow()
 
-    var name by mutableStateOf("")
-    var selectedGoal by mutableStateOf("ielts")
-    var selectedLevel by mutableStateOf("B1")
+    private val _name = MutableStateFlow("")
+    val name: StateFlow<String> = _name.asStateFlow()
+
+    private val _selectedGoal = MutableStateFlow("ielts")
+    val selectedGoal: StateFlow<String> = _selectedGoal.asStateFlow()
+
+    private val _selectedLevel = MutableStateFlow("B1")
+    val selectedLevel: StateFlow<String> = _selectedLevel.asStateFlow()
+
+    private val _step = MutableStateFlow(1)
+    val step: StateFlow<Int> = _step.asStateFlow()
+
+    fun updateStep(value: Int) {
+        _step.value = value
+    }
+
+    fun nextStep() {
+        if (_step.value < 3) _step.value += 1
+    }
+
+    fun previousStep() {
+        if (_step.value > 1) _step.value -= 1
+    }
+
+    fun updateName(value: String) {
+        _name.value = value
+    }
+
+    fun updateSelectedGoal(value: String) {
+        _selectedGoal.value = value
+    }
+
+    fun updateSelectedLevel(value: String) {
+        _selectedLevel.value = value
+    }
 
     fun loadExistingProfile() {
         val currentUser = authRepository.getCurrentUser() ?: return
-        name = currentUser.fullName ?: ""
+        _name.value = currentUser.fullName ?: ""
         
         viewModelScope.launch {
-            uiState = ProfileSetupUiState.Loading
+            _uiState.value = ProfileSetupUiState.Loading
             profileRepository.getProfile(currentUser.id)
                 .onSuccess { profile ->
                     if (profile != null) {
-                        selectedGoal = profile.learningGoal
-                        selectedLevel = profile.currentLevel
+                        _selectedGoal.value = profile.learningGoal
+                        _selectedLevel.value = profile.currentLevel
                     }
-                    uiState = ProfileSetupUiState.Idle
+                    _uiState.value = ProfileSetupUiState.Idle
                 }
                 .onFailure { e ->
-                    uiState = ProfileSetupUiState.Error(e.message ?: "Failed to load profile for editing")
+                    _uiState.value = ProfileSetupUiState.Error(e.message ?: "Failed to load profile for editing")
                 }
         }
     }
@@ -55,17 +87,17 @@ class ProfileSetupViewModel(
     fun saveProfile(name: String, goal: String, level: String) {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = ProfileSetupUiState.Error("User not logged in")
+            _uiState.value = ProfileSetupUiState.Error("User not logged in")
             return
         }
 
         viewModelScope.launch {
-            uiState = ProfileSetupUiState.Loading
+            _uiState.value = ProfileSetupUiState.Loading
             
             // 1. Update full name in Auth and users collection
             authRepository.updateProfile(name)
                 .onFailure { e ->
-                    uiState = ProfileSetupUiState.Error(e.message ?: "Failed to update profile name")
+                    _uiState.value = ProfileSetupUiState.Error(e.message ?: "Failed to update profile name")
                     return@launch
                 }
 
@@ -82,10 +114,10 @@ class ProfileSetupViewModel(
 
             profileRepository.completeProfileSetup(profile, stats)
                 .onSuccess {
-                    uiState = ProfileSetupUiState.Success
+                    _uiState.value = ProfileSetupUiState.Success
                 }
                 .onFailure { e ->
-                    uiState = ProfileSetupUiState.Error(e.message ?: "Failed to save profile")
+                    _uiState.value = ProfileSetupUiState.Error(e.message ?: "Failed to save profile")
                 }
         }
     }

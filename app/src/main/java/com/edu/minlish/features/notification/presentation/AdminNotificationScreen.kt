@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
 import com.edu.minlish.core.designsystem.theme.Primary
@@ -28,12 +29,13 @@ fun AdminNotificationScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
-    val publishState = viewModel.publishState
+    val publishState by viewModel.publishState.collectAsStateWithLifecycle()
 
     var showSuccessDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(publishState) {
-        if (publishState is PublishUiState.Success) {
+        val state = publishState
+        if (state is PublishUiState.Success) {
             showSuccessDialog = true
             title = ""
             message = ""
@@ -68,14 +70,15 @@ fun AdminNotificationScreen(
                 color = Color(0xFF6B6B6B)
             )
 
-            if (publishState is PublishUiState.Error) {
+            val state = publishState
+            if (state is PublishUiState.Error) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F0)),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = publishState.message,
+                        text = state.message,
                         color = Color.Red,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(12.dp)
@@ -100,9 +103,9 @@ fun AdminNotificationScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             MinLishButton(
-                text = if (publishState is PublishUiState.Loading) "Publishing..." else "Send Announcement",
+                text = if (state is PublishUiState.Loading) "Publishing..." else "Send Announcement",
                 onClick = { viewModel.publishNotification(title, message) },
-                enabled = publishState !is PublishUiState.Loading,
+                enabled = state !is PublishUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
         }

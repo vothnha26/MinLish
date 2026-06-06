@@ -1,9 +1,6 @@
 package com.edu.minlish.features.home.presentation.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
@@ -17,6 +14,10 @@ import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -50,8 +51,8 @@ class HomeViewModel(
         const val TAG = "HomeViewModel"
     }
 
-    var uiState by mutableStateOf(HomeUiState())
-        private set
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         observeSessionData()
@@ -59,7 +60,7 @@ class HomeViewModel(
 
     private fun observeSessionData() {
         val currentUser = authRepository.getCurrentUser() ?: return
-        uiState = uiState.copy(isLoading = true)
+        _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
             combine(
@@ -79,7 +80,7 @@ class HomeViewModel(
     fun loadHomeData(showLoading: Boolean = false) {
         val currentUser = authRepository.getCurrentUser() ?: return
         if (showLoading) {
-            uiState = uiState.copy(isLoading = true)
+            _uiState.update { it.copy(isLoading = true) }
         }
 
         // Cập nhật UI ngay lập tức từ cache hiện tại
@@ -137,19 +138,21 @@ class HomeViewModel(
         val nameToDisplay = currentUser.fullName ?: "User"
         val greeting = "$greetingPrefix, $nameToDisplay 👋"
 
-        uiState = HomeUiState(
-            dateString = dateString,
-            userName = nameToDisplay,
-            greeting = greeting,
-            streakDays = streakDays,
-            learnedCount = learnedCount,
-            dueTodayCount = dueTodayCount,
-            accuracy = "$retentionRate%",
-            todayPlanDone = todayPlanDone,
-            todayPlanTotal = targetNew + targetReview,
-            recentWords = uiState.recentWords,
-            isLoading = false
-        )
+        _uiState.update {
+            HomeUiState(
+                dateString = dateString,
+                userName = nameToDisplay,
+                greeting = greeting,
+                streakDays = streakDays,
+                learnedCount = learnedCount,
+                dueTodayCount = dueTodayCount,
+                accuracy = "$retentionRate%",
+                todayPlanDone = todayPlanDone,
+                todayPlanTotal = targetNew + targetReview,
+                recentWords = it.recentWords,
+                isLoading = false
+            )
+        }
 
         loadRecentWordsAsync(currentUser.id, progresses)
     }
@@ -170,7 +173,7 @@ class HomeViewModel(
                             null
                         }
                     }
-                uiState = uiState.copy(recentWords = recentWords)
+                _uiState.update { it.copy(recentWords = recentWords) }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load recent words asynchronously", e)
             }

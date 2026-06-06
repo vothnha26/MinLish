@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,12 +21,19 @@ import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
 import com.edu.minlish.features.speaking.presentation.viewmodel.SpeakingViewModel
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 @Composable
 fun TopicSelectionLayout(
     viewModel: SpeakingViewModel,
     onStartSession: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val selectedTopic by viewModel.selectedTopic.collectAsStateWithLifecycle()
+    val customTopicText by viewModel.customTopicText.collectAsStateWithLifecycle()
+    val useCustomTopic by viewModel.useCustomTopic.collectAsStateWithLifecycle()
+    val selectedMode by viewModel.selectedMode.collectAsStateWithLifecycle()
+    val maxTurns by viewModel.maxTurns.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -81,12 +89,12 @@ fun TopicSelectionLayout(
                     for (j in i..i + 1) {
                         if (j < modes.size) {
                             val mode = modes[j]
-                            val isSelected = viewModel.selectedMode == mode.first
+                            val isSelected = selectedMode == mode.first
                             Card(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.selectedMode = mode.first },
+                                    .clickable { viewModel.updateSelectedMode(mode.first) },
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isSelected) Primary else Color.White
                                 ),
@@ -126,7 +134,7 @@ fun TopicSelectionLayout(
         // Predefined topics list
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             viewModel.topics.forEach { topic ->
-                val isSelected = !viewModel.useCustomTopic && viewModel.selectedTopic.id == topic.id
+                val isSelected = !useCustomTopic && selectedTopic.id == topic.id
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -168,7 +176,7 @@ fun TopicSelectionLayout(
         Card(
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, if (viewModel.useCustomTopic) Primary else Color(0xFFE2E8F0)),
+            border = BorderStroke(1.dp, if (useCustomTopic) Primary else Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -177,11 +185,11 @@ fun TopicSelectionLayout(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { viewModel.useCustomTopic = true }
+                    modifier = Modifier.clickable { viewModel.updateUseCustomTopic(true) }
                 ) {
                     RadioButton(
-                        selected = viewModel.useCustomTopic,
-                        onClick = { viewModel.useCustomTopic = true },
+                        selected = useCustomTopic,
+                        onClick = { viewModel.updateUseCustomTopic(true) },
                         colors = RadioButtonDefaults.colors(selectedColor = Primary)
                     )
                     Text(
@@ -193,10 +201,10 @@ fun TopicSelectionLayout(
                 }
 
                 MinLishTextField(
-                    value = viewModel.customTopicText,
+                    value = customTopicText,
                     onValueChange = {
-                        viewModel.customTopicText = it
-                        viewModel.useCustomTopic = true
+                        viewModel.updateCustomTopicText(it)
+                        viewModel.updateUseCustomTopic(true)
                     },
                     label = "Chủ đề tự chọn",
                     placeholder = "Ví dụ: Job Interview at Google, Ordering coffee..."
@@ -217,12 +225,12 @@ fun TopicSelectionLayout(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             listOf(3, 5, 7).forEach { turns ->
-                val isSelected = viewModel.maxTurns == turns
+                val isSelected = maxTurns == turns
                 Card(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { viewModel.maxTurns = turns },
+                        .clickable { viewModel.updateMaxTurns(turns) },
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected) Primary else Color.White
                     ),
@@ -247,7 +255,7 @@ fun TopicSelectionLayout(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Start Button
-        val isStartEnabled = !viewModel.useCustomTopic || viewModel.customTopicText.isNotBlank()
+        val isStartEnabled = !useCustomTopic || customTopicText.isNotBlank()
         MinLishButton(
             text = "Bắt đầu Hội thoại (Start)",
             onClick = onStartSession,

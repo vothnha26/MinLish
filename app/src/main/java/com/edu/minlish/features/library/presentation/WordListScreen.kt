@@ -34,6 +34,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.edu.minlish.features.library.presentation.viewmodel.ExportUiState
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +48,13 @@ fun WordListScreen(
     onEditSetClick: (String) -> Unit,
     viewModel: WordListViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val exportUiState by viewModel.exportUiState.collectAsStateWithLifecycle()
+    val masteryPercentage by viewModel.masteryPercentage.collectAsStateWithLifecycle()
+    val wordProgresses by viewModel.wordProgresses.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val filteredWords by viewModel.filteredWords.collectAsStateWithLifecycle()
+    val vocabularySet by viewModel.vocabularySet.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
@@ -74,7 +81,7 @@ fun WordListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(viewModel.vocabularySet?.title ?: "Loading...", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                title = { Text(vocabularySet?.title ?: "Loading...", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = Primary)
@@ -84,7 +91,7 @@ fun WordListScreen(
                     IconButton(
                         onClick = {
                             val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                            val fileName = "MinLish_${viewModel.vocabularySet?.title?.replace(" ", "_") ?: "Set"}_$timestamp.csv"
+                            val fileName = "MinLish_${vocabularySet?.title?.replace(" ", "_") ?: "Set"}_$timestamp.csv"
                             exportLauncher.launch(fileName)
                         }
                     ) {
@@ -104,12 +111,12 @@ fun WordListScreen(
                 .padding(padding)
                 .background(Color(0xFFF0F5FB))
         ) {
-            when (uiState) {
+            when (val state = uiState) {
                 is WordListUiState.Loading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp), color = Primary)
                 }
                 is WordListUiState.Error -> {
-                    Text(text = uiState.message, color = Color.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
+                    Text(text = state.message, color = Color.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 32.dp))
                 }
                 is WordListUiState.Success -> {
                     LazyColumn(
@@ -118,7 +125,7 @@ fun WordListScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
-                            SetHeaderCard(viewModel.vocabularySet, viewModel.masteryPercentage)
+                            SetHeaderCard(vocabularySet, masteryPercentage)
                         }
                         
                         item {
@@ -150,8 +157,8 @@ fun WordListScreen(
 
                         item {
                             OutlinedTextField(
-                                value = viewModel.searchQuery,
-                                onValueChange = { viewModel.searchQuery = it },
+                                value = searchQuery,
+                                onValueChange = { viewModel.updateSearchQuery(it) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp),
@@ -174,23 +181,23 @@ fun WordListScreen(
                             )
                         }
 
-                        if (uiState.words.isEmpty()) {
+                        if (state.words.isEmpty()) {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
                                     Text("No words in this set yet", color = Color.Gray)
                                 }
                             }
-                        } else if (viewModel.filteredWords.isEmpty()) {
+                        } else if (filteredWords.isEmpty()) {
                             item {
                                 Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
                                     Text("No words match your search", color = Color.Gray)
                                 }
                             }
                         } else {
-                            items(viewModel.filteredWords) { word ->
+                            items(filteredWords) { word ->
                                 WordItemCard(
                                     word = word,
-                                    progress = viewModel.wordProgresses[word.id],
+                                    progress = wordProgresses[word.id],
                                     onClick = { onWordClick(word.id) }
                                 )
                             }
@@ -202,7 +209,7 @@ fun WordListScreen(
     }
 
     ExportVocabularyDialog(
-        exportState = viewModel.exportUiState,
+        exportState = exportUiState,
         onDismiss = { viewModel.clearExportState() }
     )
 }

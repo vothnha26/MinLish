@@ -37,6 +37,7 @@ import com.edu.minlish.features.library.presentation.viewmodel.TranslateAndLooku
 import com.edu.minlish.features.library.presentation.viewmodel.TranslateAndLookupViewModel
 import com.edu.minlish.core.util.AudioPlayer
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,11 +52,12 @@ fun TranslateAndLookupScreen(
     
     var selectedTab by remember { mutableStateOf(0) }
     val tabTitles = listOf("Dịch thuật", "Tra cứu từ")
-    
     var showSetSelectionBottomSheet by remember { mutableStateOf(false) }
     var wordToSave by remember { mutableStateOf<VocabularyWord?>(null) }
     
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val state = uiState
+    val userSets by viewModel.userSets.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -141,7 +143,7 @@ fun TranslateAndLookupScreen(
                 }
 
                 // Loading Overlay
-                if (uiState is TranslateAndLookupUiState.Loading) {
+                if (state is TranslateAndLookupUiState.Loading) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -153,9 +155,9 @@ fun TranslateAndLookupScreen(
                 }
 
                 // Error Message Dialog/Toast
-                if (uiState is TranslateAndLookupUiState.Error) {
-                    LaunchedEffect(uiState) {
-                        Toast.makeText(context, uiState.message, Toast.LENGTH_LONG).show()
+                if (state is TranslateAndLookupUiState.Error) {
+                    LaunchedEffect(state) {
+                        Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
                         viewModel.resetState()
                     }
                 }
@@ -225,7 +227,7 @@ fun TranslateAndLookupScreen(
 
                 Text("Hoặc chọn bộ từ của bạn:", fontWeight = FontWeight.Bold, color = Color.Gray, fontSize = 14.sp)
 
-                if (viewModel.userSets.isEmpty()) {
+                if (userSets.isEmpty()) {
                     Text("Bạn chưa tạo bộ từ riêng nào.", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
                 } else {
                     Box(modifier = Modifier.heightIn(max = 250.dp)) {
@@ -233,7 +235,7 @@ fun TranslateAndLookupScreen(
                             modifier = Modifier.verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            viewModel.userSets.forEach { set ->
+                            userSets.forEach { set ->
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -278,6 +280,13 @@ fun TranslationTab(
     onQuickAddClick: (VocabularyWord) -> Unit,
     onSaveToSetClick: (VocabularyWord) -> Unit
 ) {
+    val sourceLang by viewModel.sourceLang.collectAsStateWithLifecycle()
+    val targetLang by viewModel.targetLang.collectAsStateWithLifecycle()
+    val inputText by viewModel.inputText.collectAsStateWithLifecycle()
+    val translatedText by viewModel.translatedText.collectAsStateWithLifecycle()
+    val extractedWords by viewModel.extractedWords.collectAsStateWithLifecycle()
+    val wordSavedStatus by viewModel.wordSavedStatus.collectAsStateWithLifecycle()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -302,7 +311,7 @@ fun TranslationTab(
             ) {
                 // Source Language Label
                 Text(
-                    text = viewModel.sourceLang,
+                    text = sourceLang,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = Primary,
@@ -324,7 +333,7 @@ fun TranslationTab(
 
                 // Target Language Label
                 Text(
-                    text = viewModel.targetLang,
+                    text = targetLang,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = Primary,
@@ -336,8 +345,8 @@ fun TranslationTab(
 
         // Input text field
         OutlinedTextField(
-            value = viewModel.inputText,
-            onValueChange = { viewModel.inputText = it },
+            value = inputText,
+            onValueChange = { viewModel.updateInputText(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(140.dp),
@@ -364,7 +373,7 @@ fun TranslationTab(
         }
 
         // Translation Result
-        if (viewModel.translatedText.isNotBlank()) {
+        if (translatedText.isNotBlank()) {
             Text("Bản dịch", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF111111))
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -376,7 +385,7 @@ fun TranslationTab(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = viewModel.translatedText,
+                        text = translatedText,
                         fontSize = 16.sp,
                         color = Color(0xFF333333),
                         lineHeight = 22.sp
@@ -386,7 +395,7 @@ fun TranslationTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        IconButton(onClick = { onCopyClick(viewModel.translatedText) }) {
+                        IconButton(onClick = { onCopyClick(translatedText) }) {
                             Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = Primary)
                         }
                     }
@@ -395,12 +404,12 @@ fun TranslationTab(
         }
 
         // Extracted Words
-        if (viewModel.extractedWords.isNotEmpty()) {
+        if (extractedWords.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text("Từ vựng nổi bật từ bài", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF111111))
             
-            viewModel.extractedWords.forEach { word ->
-                val isSaved = viewModel.wordSavedStatus[word.word] == true
+            extractedWords.forEach { word ->
+                val isSaved = wordSavedStatus[word.word] == true
                 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -489,7 +498,11 @@ fun LookupTab(
     viewModel: TranslateAndLookupViewModel,
     onSaveClick: (VocabularyWord) -> Unit
 ) {
-    val result = viewModel.lookupResult
+    val result by viewModel.lookupResult.collectAsStateWithLifecycle()
+    val lookupResultValue = result
+    val inputText by viewModel.inputText.collectAsStateWithLifecycle()
+    val recentHistory by viewModel.recentHistory.collectAsStateWithLifecycle()
+    val wordSavedStatus by viewModel.wordSavedStatus.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -500,8 +513,8 @@ fun LookupTab(
     ) {
         // Search bar
         OutlinedTextField(
-            value = viewModel.inputText,
-            onValueChange = { viewModel.inputText = it },
+            value = inputText,
+            onValueChange = { viewModel.updateInputText(it) },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Nhập từ tiếng Anh cần tra cứu...", color = Color.Gray) },
             shape = RoundedCornerShape(12.dp),
@@ -525,7 +538,7 @@ fun LookupTab(
         }
 
         // Recent lookup history when search bar is empty and no result is displayed
-        if (viewModel.inputText.isBlank() && viewModel.recentHistory.isNotEmpty() && result == null) {
+        if (inputText.isBlank() && recentHistory.isNotEmpty() && lookupResultValue == null) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -552,12 +565,12 @@ fun LookupTab(
                     )
                 }
 
-                viewModel.recentHistory.forEach { word ->
+                recentHistory.forEach { word ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                viewModel.inputText = word
+                                viewModel.updateInputText(word)
                                 viewModel.lookupWord()
                             },
                         shape = RoundedCornerShape(10.dp),
@@ -594,8 +607,8 @@ fun LookupTab(
         }
 
         // Result Card
-        if (result != null) {
-            val isSaved = viewModel.wordSavedStatus[result.word] == true
+        if (lookupResultValue != null) {
+            val isSaved = wordSavedStatus[lookupResultValue.word] == true
             
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -613,14 +626,14 @@ fun LookupTab(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = result.word,
+                                text = lookupResultValue.word,
                                 fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF111111)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = result.pronunciation,
+                                text = lookupResultValue.pronunciation,
                                 color = Primary,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -628,7 +641,7 @@ fun LookupTab(
                         }
                         
                         IconButton(
-                            onClick = { AudioPlayer.play(result.audioUrl, result.word) },
+                            onClick = { AudioPlayer.play(lookupResultValue.audioUrl, lookupResultValue.word) },
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Primary.copy(alpha = 0.08f))
@@ -641,7 +654,7 @@ fun LookupTab(
                     Button(
                         onClick = { 
                             if (!isSaved) {
-                                onSaveClick(result)
+                                onSaveClick(lookupResultValue)
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -667,7 +680,7 @@ fun LookupTab(
                     // Definitions List
                     Text("Định nghĩa", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF111111))
                     
-                    result.definitions.forEachIndexed { index, def ->
+                    lookupResultValue.definitions.forEachIndexed { index, def ->
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -726,19 +739,19 @@ fun LookupTab(
                             }
                         }
                         
-                        if (index < result.definitions.size - 1) {
+                        if (index < lookupResultValue.definitions.size - 1) {
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
 
                     // Collocations & Note
-                    if (result.collocations.isNotBlank()) {
+                    if (lookupResultValue.collocations.isNotBlank()) {
                         HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
                         Text("Cụm từ đi kèm (Collocations)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF111111))
-                        Text(result.collocations, fontSize = 14.sp, color = Color(0xFF333333))
+                        Text(lookupResultValue.collocations, fontSize = 14.sp, color = Color(0xFF333333))
                     }
 
-                    if (result.personalNote.isNotBlank()) {
+                    if (lookupResultValue.personalNote.isNotBlank()) {
                         HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -748,7 +761,7 @@ fun LookupTab(
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("Mẹo nhớ từ (AI suggestion)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Primary)
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(result.personalNote, fontSize = 13.sp, color = Color(0xFF333333))
+                                Text(lookupResultValue.personalNote, fontSize = 13.sp, color = Color(0xFF333333))
                             }
                         }
                     }

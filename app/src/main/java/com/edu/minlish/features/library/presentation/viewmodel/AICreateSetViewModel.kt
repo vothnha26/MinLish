@@ -1,8 +1,5 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.core.ai.AIModule
@@ -19,6 +16,10 @@ import com.edu.minlish.features.library.domain.repository.LookupStrategy
 import com.google.gson.Gson
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -35,39 +36,62 @@ class AICreateSetViewModel(
     private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = false)
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<AICreateSetUiState>(AICreateSetUiState.Idle)
-        private set
+    private val _uiState = MutableStateFlow<AICreateSetUiState>(AICreateSetUiState.Idle)
+    val uiState: StateFlow<AICreateSetUiState> = _uiState.asStateFlow()
 
-    var prompt by mutableStateOf("")
-    var category by mutableStateOf("IELTS")
-    var wordCount by mutableStateOf(5)
-    var includeCollocations by mutableStateOf(true)
+    private val _prompt = MutableStateFlow("")
+    val prompt: StateFlow<String> = _prompt.asStateFlow()
+
+    private val _category = MutableStateFlow("IELTS")
+    val category: StateFlow<String> = _category.asStateFlow()
+
+    private val _wordCount = MutableStateFlow(5)
+    val wordCount: StateFlow<Int> = _wordCount.asStateFlow()
+
+    private val _includeCollocations = MutableStateFlow(true)
+    val includeCollocations: StateFlow<Boolean> = _includeCollocations.asStateFlow()
+
+    fun updatePrompt(value: String) {
+        _prompt.update { value }
+    }
+
+    fun updateCategory(value: String) {
+        _category.update { value }
+    }
+
+    fun updateWordCount(value: Int) {
+        _wordCount.update { value }
+    }
+
+    fun updateIncludeCollocations(value: Boolean) {
+        _includeCollocations.update { value }
+    }
 
     fun generateSet() {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = AICreateSetUiState.Error("User not logged in")
+            _uiState.update { AICreateSetUiState.Error("User not logged in") }
             return
         }
 
-        if (prompt.isBlank()) {
-            uiState = AICreateSetUiState.Error("Vui lòng nhập chủ đề yêu cầu!")
+        if (_prompt.value.isBlank()) {
+            _uiState.update { AICreateSetUiState.Error("Vui lòng nhập chủ đề yêu cầu!") }
             return
         }
 
         viewModelScope.launch {
             try {
-                uiState = AICreateSetUiState.Loading("AI đang sinh bộ từ vựng, vui lòng đợi...")
+                _uiState.update { AICreateSetUiState.Loading("AI đang sinh bộ từ vựng, vui lòng đợi...") }
                 
                 val aiResponseResult = AIModule.geminiService.generateVocabularySet(
-                    prompt = prompt,
-                    category = category,
-                    wordCount = wordCount,
-                    includeCollocations = includeCollocations
+                    prompt = _prompt.value,
+                    category = _category.value,
+                    wordCount = _wordCount.value,
+                    includeCollocations = _includeCollocations.value
                 )
 
                 aiResponseResult.onSuccess { jsonStr ->
-                    uiState = AICreateSetUiState.Loading("Đang phân tích kết quả trả về...")
+                    _uiState.update { AICreateSetUiState.Loading("Đang phân tích kết quả trả về...") }
                     
                     val cleanJson = if (jsonStr.contains("```json")) {
                         jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
@@ -87,20 +111,20 @@ class AICreateSetViewModel(
                         throw Exception("AI không tạo được từ vựng nào.")
                     }
 
-                    uiState = AICreateSetUiState.Loading("Đang tạo bộ từ vựng mới...")
+                    _uiState.update { AICreateSetUiState.Loading("Đang tạo bộ từ vựng mới...") }
                     
                     val newSet = VocabularySet(
                         creatorId = currentUser.id,
-                        title = aiSet.title.ifBlank { "Bộ từ vựng: $prompt" },
-                        description = aiSet.description.ifBlank { "Tạo tự động bằng AI từ yêu cầu: $prompt" },
-                        category = category,
+                        title = aiSet.title.ifBlank { "Bộ từ vựng: ${_prompt.value}" },
+                        description = aiSet.description.ifBlank { "Tạo tự động bằng AI từ yêu cầu: ${_prompt.value}" },
+                        category = _category.value,
                         wordCount = 0
                     )
 
                     val createSetResult = repository.createSetAndGetId(newSet)
                     
                     createSetResult.onSuccess { setId ->
-                        uiState = AICreateSetUiState.Loading("Đang tự động tra cứu và dịch nghĩa từ vựng...")
+                        _uiState.update { AICreateSetUiState.Loading("Đang tự động tra cứu và dịch nghĩa từ vựng...") }
                         
                         // Chạy song song việc tra cứu chi tiết từ vựng qua API từ điển truyền thống (Google Translate + FreeDict)
                         val wordObjectsDeferred = aiSet.words.map { aiWord ->
@@ -149,18 +173,18 @@ class AICreateSetViewModel(
                         
                         val wordObjects = wordObjectsDeferred.awaitAll()
                         
-                        uiState = AICreateSetUiState.Loading("Đang lưu các từ vựng vào bộ từ (0/${wordObjects.size})...")
+                        _uiState.update { AICreateSetUiState.Loading("Đang lưu các từ vựng vào bộ từ (0/${wordObjects.size})...") }
                         var savedCount = 0
                         
                         for (wordObj in wordObjects) {
                             val addWordResult = repository.addWord(wordObj)
                             if (addWordResult.isSuccess) {
                                 savedCount++
-                                uiState = AICreateSetUiState.Loading("Đang lưu các từ vựng vào bộ từ ($savedCount/${wordObjects.size})...")
+                                _uiState.update { AICreateSetUiState.Loading("Đang lưu các từ vựng vào bộ từ ($savedCount/${wordObjects.size})...") }
                             }
                         }
                         
-                        uiState = AICreateSetUiState.Success
+                        _uiState.update { AICreateSetUiState.Success }
                     }.onFailure { e ->
                         throw Exception("Không thể lưu bộ từ vào Database: ${e.message}")
                     }
@@ -170,7 +194,7 @@ class AICreateSetViewModel(
                 }
 
             } catch (e: Exception) {
-                uiState = AICreateSetUiState.Error(e.message ?: "Đã xảy ra lỗi không xác định.")
+                _uiState.update { AICreateSetUiState.Error(e.message ?: "Đã xảy ra lỗi không xác định.") }
             }
         }
     }

@@ -1,13 +1,16 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.library.data.repository.FirestoreVocabularyRepositoryImpl
 import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -26,51 +29,54 @@ class WordListViewModel(
     private val exportManager: VocabularyExportManager = VocabularyExportManager()
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<WordListUiState>(WordListUiState.Loading)
-        private set
+    private val _uiState = MutableStateFlow<WordListUiState>(WordListUiState.Loading)
+    val uiState: StateFlow<WordListUiState> = _uiState.asStateFlow()
 
-    var exportUiState by mutableStateOf<ExportUiState>(ExportUiState.Idle)
-        private set
+    private val _exportUiState = MutableStateFlow<ExportUiState>(ExportUiState.Idle)
+    val exportUiState: StateFlow<ExportUiState> = _exportUiState.asStateFlow()
 
-    var masteryPercentage by mutableStateOf(0.0f)
-        private set
+    private val _masteryPercentage = MutableStateFlow(0.0f)
+    val masteryPercentage: StateFlow<Float> = _masteryPercentage.asStateFlow()
 
-    var wordProgresses by mutableStateOf<Map<String, com.edu.minlish.features.learning.domain.model.UserWordProgress>>(emptyMap())
-        private set
+    private val _wordProgresses = MutableStateFlow<Map<String, com.edu.minlish.features.learning.domain.model.UserWordProgress>>(emptyMap())
+    val wordProgresses: StateFlow<Map<String, com.edu.minlish.features.learning.domain.model.UserWordProgress>> = _wordProgresses.asStateFlow()
 
-    var searchQuery by mutableStateOf("")
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val filteredWords: List<VocabularyWord>
-        get() {
-            val state = uiState
-            if (state !is WordListUiState.Success) return emptyList()
-            return state.words.filter { word ->
-                searchQuery.isBlank() || 
-                        word.word.contains(searchQuery, ignoreCase = true) || 
-                        word.definitions.any { def -> 
-                            def.meaningVietnamese.contains(searchQuery, ignoreCase = true) || 
-                            def.definitionEnglish.contains(searchQuery, ignoreCase = true) 
-                        }
-            }
+    val filteredWords: StateFlow<List<VocabularyWord>> = combine(uiState, searchQuery) { state, query ->
+        if (state !is WordListUiState.Success) return@combine emptyList<VocabularyWord>()
+        state.words.filter { word ->
+            query.isBlank() || 
+                    word.word.contains(query, ignoreCase = true) || 
+                    word.definitions.any { def -> 
+                        def.meaningVietnamese.contains(query, ignoreCase = true) || 
+                        def.definitionEnglish.contains(query, ignoreCase = true) 
+                    }
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    var vocabularySet by mutableStateOf<com.edu.minlish.features.library.domain.model.VocabularySet?>(null)
-        private set
+    private val _vocabularySet = MutableStateFlow<com.edu.minlish.features.library.domain.model.VocabularySet?>(null)
+    val vocabularySet: StateFlow<com.edu.minlish.features.library.domain.model.VocabularySet?> = _vocabularySet.asStateFlow()
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
 
     fun loadWords(setId: String) {
         viewModelScope.launch {
-            if (uiState !is WordListUiState.Success) {
-                uiState = WordListUiState.Loading
+            if (_uiState.value !is WordListUiState.Success) {
+                _uiState.value = WordListUiState.Loading
             }
             
             val setRepoResult: Result<com.edu.minlish.features.library.domain.model.VocabularySet> = repository.getSetById(setId)
             setRepoResult.onSuccess { set ->
-                vocabularySet = set
+                _vocabularySet.value = set
             }
 
             repository.getWordsBySet(setId)
                 .onSuccess { words ->
-                    uiState = WordListUiState.Success(words)
+                    _uiState.value = WordListUiState.Success(words)
                     
                     val currentUser = com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl().getCurrentUser()
                     if (currentUser != null && words.isNotEmpty()) {
@@ -83,41 +89,41 @@ class WordListViewModel(
                                 .await()
                             
                             val progresses = progressSnapshot.toObjects(com.edu.minlish.features.learning.domain.model.UserWordProgress::class.java)
-                            wordProgresses = progresses.associateBy { it.wordId }
+                            _wordProgresses.value = progresses.associateBy { it.wordId }
                             val masteredThreshold = com.edu.minlish.core.util.AppSettings.masteredThreshold
                             val mastered = progresses.count { it.status == "mastered" || it.interval > masteredThreshold }
-                            masteryPercentage = mastered.toFloat() / words.size.toFloat()
+                            _masteryPercentage.value = mastered.toFloat() / words.size.toFloat()
                         } catch (e: Exception) {
-                            wordProgresses = emptyMap()
-                            masteryPercentage = 0.0f
+                            _wordProgresses.value = emptyMap()
+                            _masteryPercentage.value = 0.0f
                         }
                     } else {
-                        masteryPercentage = 0.0f
+                        _masteryPercentage.value = 0.0f
                     }
                 }
                 .onFailure { e ->
-                    uiState = WordListUiState.Error(e.message ?: "Failed to load words")
+                    _uiState.value = WordListUiState.Error(e.message ?: "Failed to load words")
                 }
         }
     }
 
     fun startExport(context: Context, uri: Uri) {
-        val state = uiState
+        val state = _uiState.value
         if (state !is WordListUiState.Success) return
 
         viewModelScope.launch {
-            exportUiState = ExportUiState.Exporting
+            _exportUiState.value = ExportUiState.Exporting
             exportManager.exportToCsv(context, uri, state.words)
                 .onSuccess {
-                    exportUiState = ExportUiState.Success(uri.path?.substringAfterLast('/') ?: "vocabulary.csv")
+                    _exportUiState.value = ExportUiState.Success(uri.path?.substringAfterLast('/') ?: "vocabulary.csv")
                 }
                 .onFailure { e ->
-                    exportUiState = ExportUiState.Error(e.message ?: "Failed to export vocabulary")
+                    _exportUiState.value = ExportUiState.Error(e.message ?: "Failed to export vocabulary")
                 }
         }
     }
 
     fun clearExportState() {
-        exportUiState = ExportUiState.Idle
+        _exportUiState.value = ExportUiState.Idle
     }
 }

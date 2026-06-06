@@ -18,14 +18,35 @@ import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.designsystem.theme.Primary
 import kotlinx.coroutines.delay
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edu.minlish.features.onboarding.presentation.viewmodel.SplashViewModel
+import com.edu.minlish.features.onboarding.presentation.viewmodel.SplashDestination
 
 @Composable
 fun SplashScreen(
-    onDone: () -> Unit
+    onNavigateToHome: () -> Unit,
+    onNavigateToProfileSetup: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
+    viewModel: SplashViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
-        delay(2200)
-        onDone()
+        viewModel.checkDestination()
+    }
+
+    val destination by viewModel.destination.collectAsStateWithLifecycle()
+
+    LaunchedEffect(destination) {
+        if (destination != SplashDestination.Loading) {
+            // Đảm bảo thời gian hiển thị tối thiểu để có hiệu ứng chào mừng mượt mà
+            delay(1500)
+            when (destination) {
+                is SplashDestination.Home -> onNavigateToHome()
+                is SplashDestination.ProfileSetup -> onNavigateToProfileSetup()
+                is SplashDestination.Onboarding -> onNavigateToOnboarding()
+                else -> {}
+            }
+        }
     }
 
     Box(
@@ -149,5 +170,9 @@ private fun Dot(alpha: Float) {
 @Preview(showBackground = true)
 @Composable
 fun SplashScreenPreview() {
-    SplashScreen(onDone = {})
+    SplashScreen(
+        onNavigateToHome = {},
+        onNavigateToProfileSetup = {},
+        onNavigateToOnboarding = {}
+    )
 }

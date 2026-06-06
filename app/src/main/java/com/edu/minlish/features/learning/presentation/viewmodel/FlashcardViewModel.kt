@@ -1,9 +1,6 @@
 package com.edu.minlish.features.learning.presentation.viewmodel
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.features.auth.data.repository.FirebaseAuthRepositoryImpl
@@ -15,10 +12,12 @@ import com.edu.minlish.features.learning.domain.repository.LearningRepository
 import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.profilesetup.data.repository.FirestoreProfileRepositoryImpl
 import com.edu.minlish.features.profilesetup.domain.repository.ProfileRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 sealed class FlashcardUiState {
     object Loading : FlashcardUiState()
@@ -37,23 +36,31 @@ class FlashcardViewModel(
         const val TAG = "FlashcardViewModel"
     }
 
-    var uiState by mutableStateOf<FlashcardUiState>(FlashcardUiState.Loading)
-        private set
+    private val _uiState = MutableStateFlow<FlashcardUiState>(FlashcardUiState.Loading)
+    val uiState: StateFlow<FlashcardUiState> = _uiState.asStateFlow()
 
-    var currentIndex by mutableStateOf(0)
-    var isFlipped by mutableStateOf(false)
-    var isSubmittingRating by mutableStateOf(false)
-        private set
+    private val _currentIndex = MutableStateFlow(0)
+    val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
+
+    private val _isFlipped = MutableStateFlow(false)
+    val isFlipped: StateFlow<Boolean> = _isFlipped.asStateFlow()
+
+    private val _isSubmittingRating = MutableStateFlow(false)
+    val isSubmittingRating: StateFlow<Boolean> = _isSubmittingRating.asStateFlow()
+
+    fun updateCurrentIndex(value: Int) { _currentIndex.update { value } }
+    fun updateIsFlipped(value: Boolean) { _isFlipped.update { value } }
+    fun updateIsSubmittingRating(value: Boolean) { _isSubmittingRating.update { value } }
 
     fun loadWords(setId: String?, forceAll: Boolean = false) {
         val currentUser = authRepository.getCurrentUser()
         if (currentUser == null) {
-            uiState = FlashcardUiState.Error("User not logged in")
+            _uiState.update { FlashcardUiState.Error("User not logged in") }
             return
         }
 
         viewModelScope.launch {
-            uiState = FlashcardUiState.Loading
+            _uiState.update { FlashcardUiState.Loading }
             
             val result = if (forceAll) {
                 repository.getDueWords(currentUser.id, setId, forceAll = true)
@@ -75,38 +82,37 @@ class FlashcardViewModel(
             result
                 .onSuccess { dueWords ->
                     if (dueWords.isEmpty()) {
-                        uiState = FlashcardUiState.Finished
+                        _uiState.update { FlashcardUiState.Finished }
                     } else {
-                        uiState = FlashcardUiState.Success(dueWords)
-                        currentIndex = 0
+                        _uiState.update { FlashcardUiState.Success(dueWords) }
+                        _currentIndex.update { 0 }
                     }
                 }
                 .onFailure { e ->
-                    uiState = FlashcardUiState.Error(e.message ?: "Failed to load words")
+                    _uiState.update { FlashcardUiState.Error(e.message ?: "Failed to load words") }
                 }
         }
     }
 
     fun onFlip() {
-        isFlipped = !isFlipped
+        _isFlipped.update { !it }
     }
 
     fun submitRating(rating: Int) {
-        if (isSubmittingRating) return
+        if (_isSubmittingRating.value) return
 
-        val currentWords = (uiState as? FlashcardUiState.Success)?.words ?: return
-        val (word, progress) = currentWords[currentIndex]
+        val currentWords = (uiState.value as? FlashcardUiState.Success)?.words ?: return
+        val (word, progress) = currentWords[_currentIndex.value]
         val currentUser = authRepository.getCurrentUser() ?: return
 
         viewModelScope.launch {
-            isSubmittingRating = true
+            _isSubmittingRating.update { true }
             try {
                 val updatedProgress = com.edu.minlish.core.util.SpacedRepetitionUtil.calculateSM2ForRating(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
                 val progressResult = repository.updateProgress(updatedProgress)
                 if (progressResult.isFailure) {
                     val message = progressResult.exceptionOrNull()?.message ?: "Failed to update progress"
-//                    Log.e(TAG, "Failed to update progress for wordId=${word.id}: $message")
-                    uiState = FlashcardUiState.Error(message)
+                    _uiState.update { FlashcardUiState.Error(message) }
                     return@launch
                 }
 
@@ -130,7 +136,7 @@ class FlashcardViewModel(
                 if (logResult.isFailure) {
                     val message = logResult.exceptionOrNull()?.message ?: "Failed to save review log"
                     Log.e(TAG, "Failed to save review log for wordId=${word.id}: $message")
-                    uiState = FlashcardUiState.Error(message)
+                    _uiState.update { FlashcardUiState.Error(message) }
                     return@launch
                 }
                 Log.d(TAG, "Saved review log to user_review_logs for wordId=${word.id}, rating=$ratingStr")
@@ -152,22 +158,20 @@ class FlashcardViewModel(
                 sessionCache.userWordProgresses = currentProgresses
 
                 if (rating == 0) {
-                    isFlipped = false
+                    _isFlipped.update { false }
                     Log.d(TAG, "Keeping wordId=${word.id} on current card after Again rating")
                     return@launch
                 }
 
-                if (currentIndex < currentWords.size - 1) {
-                    currentIndex++
-                    isFlipped = false
+                if (_currentIndex.value < currentWords.size - 1) {
+                    _currentIndex.update { it + 1 }
+                    _isFlipped.update { false }
                 } else {
-                    uiState = FlashcardUiState.Finished
+                    _uiState.update { FlashcardUiState.Finished }
                 }
             } finally {
-                isSubmittingRating = false
+                _isSubmittingRating.update { false }
             }
         }
     }
-
-
 }

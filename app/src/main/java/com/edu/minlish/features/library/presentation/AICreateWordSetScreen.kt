@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
@@ -46,7 +47,11 @@ fun AICreateWordSetScreen(
     onCreateSuccess: () -> Unit,
     viewModel: AICreateSetViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val prompt by viewModel.prompt.collectAsStateWithLifecycle()
+    val category by viewModel.category.collectAsStateWithLifecycle()
+    val wordCount by viewModel.wordCount.collectAsStateWithLifecycle()
+    val includeCollocations by viewModel.includeCollocations.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
     BackHandler(enabled = uiState is AICreateSetUiState.Loading) {
@@ -149,8 +154,8 @@ fun AICreateWordSetScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     MinLishTextField(
-                        value = viewModel.prompt,
-                        onValueChange = { viewModel.prompt = it },
+                        value = prompt,
+                        onValueChange = { viewModel.updatePrompt(it) },
                         label = "Ví dụ: Các từ vựng về bảo vệ môi trường, từ giao tiếp sân bay...",
                         placeholder = "Nhập chủ đề bạn muốn AI tạo từ vựng"
                     )
@@ -170,10 +175,10 @@ fun AICreateWordSetScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "General").forEach { cat ->
-                            val isSelected = viewModel.category == cat
+                            val isSelected = category == cat
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { viewModel.category = cat },
+                                onClick = { viewModel.updateCategory(cat) },
                                 label = { Text(cat, fontSize = 14.sp) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = FilterChipDefaults.filterChipColors(
@@ -206,15 +211,15 @@ fun AICreateWordSetScreen(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${viewModel.wordCount} từ",
+                            text = "$wordCount từ",
                             color = Primary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Slider(
-                        value = viewModel.wordCount.toFloat(),
-                        onValueChange = { viewModel.wordCount = it.toInt() },
+                        value = wordCount.toFloat(),
+                        onValueChange = { viewModel.updateWordCount(it.toInt()) },
                         valueRange = 5f..50f,
                         steps = 8,
                         colors = SliderDefaults.colors(
@@ -260,8 +265,8 @@ fun AICreateWordSetScreen(
                             )
                         }
                         Switch(
-                            checked = viewModel.includeCollocations,
-                            onCheckedChange = { viewModel.includeCollocations = it },
+                            checked = includeCollocations,
+                            onCheckedChange = { viewModel.updateIncludeCollocations(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = Primary
@@ -272,7 +277,7 @@ fun AICreateWordSetScreen(
 
                 if (uiState is AICreateSetUiState.Error) {
                     Text(
-                        text = uiState.message,
+                        text = (uiState as AICreateSetUiState.Error).message,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -286,7 +291,7 @@ fun AICreateWordSetScreen(
                 MinLishButton(
                     text = "Tạo bộ từ vựng bằng AI",
                     onClick = { viewModel.generateSet() },
-                    enabled = viewModel.prompt.isNotBlank() && uiState !is AICreateSetUiState.Loading,
+                    enabled = prompt.isNotBlank() && uiState !is AICreateSetUiState.Loading,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -324,7 +329,7 @@ fun AICreateWordSetScreen(
                             color = Color(0xFF1F1F1F)
                         )
                         Text(
-                            text = uiState.message,
+                            text = (uiState as AICreateSetUiState.Loading).message,
                             fontSize = 14.sp,
                             color = Color.Gray,
                             textAlign = TextAlign.Center,

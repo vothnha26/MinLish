@@ -29,6 +29,7 @@ import com.edu.minlish.core.designsystem.theme.Border
 import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.features.auth.presentation.components.GoogleIconDrawing
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.auth.presentation.viewmodel.AuthUiState
 import com.edu.minlish.features.auth.presentation.viewmodel.AuthViewModel
@@ -40,38 +41,20 @@ fun RegisterScreen(
     onRegister: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-    var showConfirmPassword by remember { mutableStateOf(false) }
-    var agreedToTerms by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val name by viewModel.fullName.collectAsStateWithLifecycle()
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val password by viewModel.password.collectAsStateWithLifecycle()
+    val confirmPassword by viewModel.confirmPassword.collectAsStateWithLifecycle()
+    val showPassword by viewModel.showPassword.collectAsStateWithLifecycle()
+    val showConfirmPassword by viewModel.showConfirmPassword.collectAsStateWithLifecycle()
+    val agreedToTerms by viewModel.agreedToTerms.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val uiState = viewModel.uiState
     val strength = getPasswordStrength(password)
     val strengthLabel = getStrengthLabel(strength)
 
     fun handleRegister() {
-        error = null
-        if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            error = "Please fill in all fields."
-            return
-        }
-        if (password != confirmPassword) {
-            error = "Passwords do not match."
-            return
-        }
-        if (!agreedToTerms) {
-            error = "You must agree to the Terms and Privacy Policy."
-            return
-        }
-
         viewModel.register(
-            email = email,
-            password = password,
-            fullName = name,
             onNavigate = { _ -> onRegister() } // Đăng ký mới thì luôn bắt setup
         )
     }
@@ -110,15 +93,14 @@ fun RegisterScreen(
             )
 
             // Error Message
-            val displayError = error ?: (if (uiState is AuthUiState.Error) uiState.message else null)
-            if (displayError != null) {
+            if (uiState is AuthUiState.Error) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F0)),
                     modifier = Modifier.padding(bottom = 16.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = displayError,
+                        text = (uiState as AuthUiState.Error).message,
                         color = Color.Red,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(12.dp)
@@ -129,7 +111,7 @@ fun RegisterScreen(
             // Form Fields
             MinLishTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { viewModel.updateFullName(it) },
                 label = "Full name",
                 placeholder = "Your name",
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -137,7 +119,7 @@ fun RegisterScreen(
 
             MinLishTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { viewModel.updateEmail(it) },
                 label = "Email",
                 placeholder = "you@email.com",
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -147,7 +129,7 @@ fun RegisterScreen(
             Column(modifier = Modifier.padding(bottom = 12.dp)) {
                 MinLishTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { viewModel.updatePassword(it) },
                     label = "Password",
                     placeholder = "••••••••",
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -155,7 +137,7 @@ fun RegisterScreen(
                         Text(
                             text = if (showPassword) "Hide" else "Show",
                             style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFAAAAAA)),
-                            modifier = Modifier.clickable { showPassword = !showPassword }
+                            modifier = Modifier.clickable { viewModel.toggleShowPassword() }
                         )
                     }
                 )
@@ -188,7 +170,7 @@ fun RegisterScreen(
 
             MinLishTextField(
                 value = confirmPassword,
-                onValueChange = { confirmPassword = it },
+                onValueChange = { viewModel.updateConfirmPassword(it) },
                 label = "Confirm password",
                 placeholder = "••••••••",
                 visualTransformation = if (showConfirmPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -196,7 +178,7 @@ fun RegisterScreen(
                     Text(
                         text = if (showConfirmPassword) "Hide" else "Show",
                         style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFAAAAAA)),
-                        modifier = Modifier.clickable { showConfirmPassword = !showConfirmPassword }
+                        modifier = Modifier.clickable { viewModel.toggleShowConfirmPassword() }
                     )
                 },
                 modifier = Modifier.padding(bottom = 20.dp)
@@ -206,7 +188,7 @@ fun RegisterScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { agreedToTerms = !agreedToTerms }
+                    .clickable { viewModel.updateAgreedToTerms(!agreedToTerms) }
                     .padding(bottom = 20.dp),
                 verticalAlignment = Alignment.Top
             ) {

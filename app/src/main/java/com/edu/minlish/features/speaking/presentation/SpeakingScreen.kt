@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +24,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.speaking.presentation.viewmodel.SpeakingUiState
 import com.edu.minlish.features.speaking.presentation.viewmodel.SpeakingViewModel
+
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,10 +41,13 @@ fun SpeakingScreen(
         }
     )
 
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentTurn by viewModel.currentTurn.collectAsStateWithLifecycle()
+    val maxTurns by viewModel.maxTurns.collectAsStateWithLifecycle()
 
     // Block back gestures when processing or evaluating
-    val isBusy = uiState is SpeakingUiState.ProcessingTurn || uiState is SpeakingUiState.Evaluating
+    val state = uiState
+    val isBusy = state is SpeakingUiState.ProcessingTurn || state is SpeakingUiState.Evaluating
     BackHandler(enabled = isBusy) {
         // Do nothing, preventing back press during AI operation
     }
@@ -69,10 +75,11 @@ fun SpeakingScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
+                    val stateHeader = uiState
                     Text(
-                        text = when (uiState) {
+                        text = when (stateHeader) {
                             is SpeakingUiState.TopicSelection -> "AI Speaking Partner"
-                            is SpeakingUiState.SessionActive -> "Interviewer Chat (${viewModel.currentTurn}/${viewModel.maxTurns})"
+                            is SpeakingUiState.SessionActive -> "Interviewer Chat (${currentTurn}/${maxTurns})"
                             is SpeakingUiState.ProcessingTurn -> "Interviewer Chat"
                             is SpeakingUiState.Evaluating -> "Generating Report"
                             is SpeakingUiState.Report -> "Speaking Report"
@@ -85,9 +92,10 @@ fun SpeakingScreen(
                 navigationIcon = {
                     IconButton(
                         onClick = {
-                            if (uiState is SpeakingUiState.TopicSelection || uiState is SpeakingUiState.Report) {
+                            val stateNav = uiState
+                            if (stateNav is SpeakingUiState.TopicSelection || stateNav is SpeakingUiState.Report) {
                                 onBack()
-                            } else if (uiState is SpeakingUiState.SessionActive || uiState is SpeakingUiState.Error) {
+                            } else if (stateNav is SpeakingUiState.SessionActive || stateNav is SpeakingUiState.Error) {
                                 viewModel.useTopicSelection()
                             }
                         },
@@ -106,7 +114,8 @@ fun SpeakingScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (uiState) {
+            val stateContent = uiState
+            when (stateContent) {
                 is SpeakingUiState.TopicSelection -> {
                     TopicSelectionLayout(
                         viewModel = viewModel,
@@ -118,19 +127,19 @@ fun SpeakingScreen(
                 is SpeakingUiState.Evaluating -> {
                     ChatSessionLayout(
                         viewModel = viewModel,
-                        uiState = uiState,
+                        uiState = stateContent,
                         onRecordClick = { handleRecordClick() }
                     )
                 }
                 is SpeakingUiState.Report -> {
                     ReportLayout(
-                        result = uiState.result,
+                        result = stateContent.result,
                         onRetry = { viewModel.useTopicSelection() }
                     )
                 }
                 is SpeakingUiState.Error -> {
                     ErrorLayout(
-                        message = uiState.message,
+                        message = stateContent.message,
                         onBackToSelection = { viewModel.useTopicSelection() }
                     )
                 }

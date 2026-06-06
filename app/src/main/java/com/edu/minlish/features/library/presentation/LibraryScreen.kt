@@ -35,9 +35,9 @@ import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.presentation.viewmodel.ImportUiState
 import com.edu.minlish.features.library.presentation.viewmodel.LibraryViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.LibraryUiState
-
 import com.edu.minlish.features.library.presentation.viewmodel.ExportUiState
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +48,17 @@ fun LibraryScreen(
     onAddWordClick: (String) -> Unit,
     viewModel: LibraryViewModel = viewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val importUiState by viewModel.importUiState.collectAsStateWithLifecycle()
+    val exportUiState by viewModel.exportUiState.collectAsStateWithLifecycle()
+    val importSetTitle by viewModel.importSetTitle.collectAsStateWithLifecycle()
+    val importCategory by viewModel.importCategory.collectAsStateWithLifecycle()
+    val categoriesList by viewModel.categoriesList.collectAsStateWithLifecycle()
+    val progressMap by viewModel.progressMap.collectAsStateWithLifecycle()
+    val filteredSets by viewModel.filteredSets.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
     var showCategoryManager by remember { mutableStateOf(false) }
     var showCreateOptionsSheet by remember { mutableStateOf(false) }
@@ -151,8 +161,8 @@ fun LibraryScreen(
         ) {
             // Search Bar
             OutlinedTextField(
-                value = viewModel.searchQuery,
-                onValueChange = { viewModel.searchQuery = it },
+                value = searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -186,10 +196,10 @@ fun LibraryScreen(
                 ) {
                     items(viewModel.displayCategories.size) { index ->
                         val category = viewModel.displayCategories[index]
-                        val isSelected = category == viewModel.selectedCategory
+                        val isSelected = category == selectedCategory
                         FilterChip(
                             selected = isSelected,
-                            onClick = { viewModel.selectedCategory = category },
+                            onClick = { viewModel.updateSelectedCategory(category) },
                             label = { Text(category) },
                             shape = RoundedCornerShape(8.dp),
                             colors = FilterChipDefaults.filterChipColors(
@@ -223,7 +233,7 @@ fun LibraryScreen(
 
             if (showCategoryManager) {
                 CategoryManagerDialog(
-                    categories = viewModel.categoriesList,
+                    categories = categoriesList,
                     onAdd = { viewModel.addCategory(it) },
                     onEdit = { cat, name -> viewModel.updateCategory(cat, name) },
                     onDelete = { viewModel.deleteCategory(it) },
@@ -233,17 +243,17 @@ fun LibraryScreen(
 
             // Word Set List
             Box(modifier = Modifier.fillMaxSize()) {
-                when (uiState) {
+                when (val state = uiState) {
                     is LibraryUiState.Loading -> {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
                     }
                     is LibraryUiState.Error -> {
-                        Text(text = uiState.message, color = Color.Red, modifier = Modifier.align(Alignment.Center))
+                        Text(text = state.message, color = Color.Red, modifier = Modifier.align(Alignment.Center))
                     }
                     is LibraryUiState.Success -> {
-                        if (uiState.sets.isEmpty()) {
+                        if (state.sets.isEmpty()) {
                             EmptyLibrary(onCreateWordSetClick)
-                        } else if (viewModel.filteredSets.isEmpty()) {
+                        } else if (filteredSets.isEmpty()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(text = "No word sets match your search", color = Color.Gray, fontSize = 16.sp)
                             }
@@ -253,10 +263,10 @@ fun LibraryScreen(
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                items(viewModel.filteredSets) { wordSet ->
+                                items(filteredSets) { wordSet ->
                                     WordSetCard(
                                         wordSet = wordSet,
-                                        progress = viewModel.progressMap[wordSet.id] ?: 0.0f,
+                                        progress = progressMap[wordSet.id] ?: 0.0f,
                                         onClick = { onWordSetClick(wordSet.id) }
                                     )
                                 }
@@ -369,17 +379,17 @@ fun LibraryScreen(
     }
 
     ImportVocabularyDialog(
-        importState = viewModel.importUiState,
-        title = viewModel.importSetTitle,
-        category = viewModel.importCategory,
-        onTitleChange = { viewModel.importSetTitle = it },
-        onCategoryChange = { viewModel.importCategory = it },
-        onConfirm = { viewModel.confirmImport(viewModel.importSetTitle, viewModel.importCategory) },
+        importState = importUiState,
+        title = importSetTitle,
+        category = importCategory,
+        onTitleChange = { viewModel.updateImportSetTitle(it) },
+        onCategoryChange = { viewModel.updateImportCategory(it) },
+        onConfirm = { viewModel.confirmImport(importSetTitle, importCategory) },
         onDismiss = { viewModel.clearImportState() }
     )
 
     ExportVocabularyDialog(
-        exportState = viewModel.exportUiState,
+        exportState = exportUiState,
         onDismiss = { viewModel.clearExportState() }
     )
 }

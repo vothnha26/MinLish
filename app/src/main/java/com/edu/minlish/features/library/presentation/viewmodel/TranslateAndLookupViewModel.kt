@@ -1,10 +1,5 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.core.ai.AIModule
@@ -21,6 +16,10 @@ import com.edu.minlish.core.util.SessionDataManager
 import com.edu.minlish.core.util.AppSettings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -51,32 +50,46 @@ class TranslateAndLookupViewModel(
     private val getUserId: () -> String? = { FirebaseAuth.getInstance().currentUser?.uid }
 ) : ViewModel() {
 
-    var uiState by mutableStateOf<TranslateAndLookupUiState>(TranslateAndLookupUiState.Idle)
-        private set
+    private val _uiState = MutableStateFlow<TranslateAndLookupUiState>(TranslateAndLookupUiState.Idle)
+    val uiState: StateFlow<TranslateAndLookupUiState> = _uiState.asStateFlow()
 
-    var inputText by mutableStateOf("")
-    var translatedText by mutableStateOf("")
+    private val _inputText = MutableStateFlow("")
+    val inputText: StateFlow<String> = _inputText.asStateFlow()
+
+    private val _translatedText = MutableStateFlow("")
+    val translatedText: StateFlow<String> = _translatedText.asStateFlow()
 
     // Language state for translation
-    var sourceLang by mutableStateOf("Tiếng Anh")
-    var targetLang by mutableStateOf("Tiếng Việt")
-    var sourceLangCode by mutableStateOf("en")
-    var targetLangCode by mutableStateOf("vi")
+    private val _sourceLang = MutableStateFlow("Tiếng Anh")
+    val sourceLang: StateFlow<String> = _sourceLang.asStateFlow()
+
+    private val _targetLang = MutableStateFlow("Tiếng Việt")
+    val targetLang: StateFlow<String> = _targetLang.asStateFlow()
+
+    private val _sourceLangCode = MutableStateFlow("en")
+    val sourceLangCode: StateFlow<String> = _sourceLangCode.asStateFlow()
+
+    private val _targetLangCode = MutableStateFlow("vi")
+    val targetLangCode: StateFlow<String> = _targetLangCode.asStateFlow()
 
     // Recent history list for word lookup
-    val recentHistory = mutableStateListOf<String>()
+    private val _recentHistory = MutableStateFlow<List<String>>(emptyList())
+    val recentHistory: StateFlow<List<String>> = _recentHistory.asStateFlow()
     
     // Extracted words from translation
-    val extractedWords = mutableStateListOf<VocabularyWord>()
+    private val _extractedWords = MutableStateFlow<List<VocabularyWord>>(emptyList())
+    val extractedWords: StateFlow<List<VocabularyWord>> = _extractedWords.asStateFlow()
     
     // Detailed single word lookup result
-    var lookupResult by mutableStateOf<VocabularyWord?>(null)
-        private set
+    private val _lookupResult = MutableStateFlow<VocabularyWord?>(null)
+    val lookupResult: StateFlow<VocabularyWord?> = _lookupResult.asStateFlow()
 
-    val userSets = mutableStateListOf<VocabularySet>()
+    private val _userSets = MutableStateFlow<List<VocabularySet>>(emptyList())
+    val userSets: StateFlow<List<VocabularySet>> = _userSets.asStateFlow()
     
     // Saved status for words (word string -> isSaved)
-    val wordSavedStatus = mutableStateMapOf<String, Boolean>()
+    private val _wordSavedStatus = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val wordSavedStatus: StateFlow<Map<String, Boolean>> = _wordSavedStatus.asStateFlow()
 
     // We use getUserId function to avoid static dependency on FirebaseAuth during testing
 
@@ -85,43 +98,57 @@ class TranslateAndLookupViewModel(
         loadRecentHistory()
     }
 
+    fun updateInputText(text: String) {
+        _inputText.update { text }
+    }
+
+    fun updateTranslatedText(text: String) {
+        _translatedText.update { text }
+    }
+
     fun loadRecentHistory() {
         val historyStr = AppSettings.recentLookupHistory
         if (historyStr.isNotBlank()) {
             val list = historyStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            recentHistory.clear()
-            recentHistory.addAll(list.take(5))
+            _recentHistory.update { list.take(5) }
+        } else {
+            _recentHistory.update { emptyList() }
         }
     }
 
     fun addWordToHistory(word: String) {
         val cleanWord = word.trim()
         if (cleanWord.isBlank()) return
-        recentHistory.remove(cleanWord)
-        recentHistory.add(0, cleanWord)
-        if (recentHistory.size > 5) {
-            recentHistory.removeAt(recentHistory.lastIndex)
+        _recentHistory.update { currentList ->
+            val newList = currentList.toMutableList()
+            newList.remove(cleanWord)
+            newList.add(0, cleanWord)
+            if (newList.size > 5) {
+                newList.removeAt(newList.lastIndex)
+            }
+            AppSettings.recentLookupHistory = newList.joinToString(",")
+            newList
         }
-        AppSettings.recentLookupHistory = recentHistory.joinToString(",")
     }
 
     fun clearRecentHistory() {
-        recentHistory.clear()
+        _recentHistory.update { emptyList() }
         AppSettings.recentLookupHistory = ""
     }
 
     fun swapLanguages() {
-        val tempLang = sourceLang
-        sourceLang = targetLang
-        targetLang = tempLang
+        val tempLang = _sourceLang.value
+        val tempCode = _sourceLangCode.value
+        val tempText = _inputText.value
 
-        val tempCode = sourceLangCode
-        sourceLangCode = targetLangCode
-        targetLangCode = tempCode
+        _sourceLang.update { _targetLang.value }
+        _targetLang.update { tempLang }
 
-        val tempText = inputText
-        inputText = translatedText
-        translatedText = tempText
+        _sourceLangCode.update { _targetLangCode.value }
+        _targetLangCode.update { tempCode }
+
+        _inputText.update { _translatedText.value }
+        _translatedText.update { tempText }
     }
 
     fun loadUserSets() {
@@ -129,14 +156,12 @@ class TranslateAndLookupViewModel(
         
         // Load from SessionDataManager cache first for instant UI response
         SessionDataManager.vocabularySets?.let { cachedSets ->
-            userSets.clear()
-            userSets.addAll(cachedSets)
+            _userSets.update { cachedSets }
         }
 
         viewModelScope.launch {
             repository.getUserSets(userId).onSuccess { sets ->
-                userSets.clear()
-                userSets.addAll(sets)
+                _userSets.update { sets }
                 // Cache it back to SessionDataManager
                 SessionDataManager.vocabularySets = sets
             }
@@ -144,41 +169,41 @@ class TranslateAndLookupViewModel(
     }
 
     fun translateText() {
-        val text = inputText.trim()
+        val text = _inputText.value.trim()
         if (text.isBlank()) return
 
         viewModelScope.launch {
-            uiState = TranslateAndLookupUiState.Loading
-            extractedWords.clear()
-            translatedText = ""
-            wordSavedStatus.clear()
+            _uiState.update { TranslateAndLookupUiState.Loading }
+            _extractedWords.update { emptyList() }
+            _translatedText.update { "" }
+            _wordSavedStatus.update { emptyMap() }
 
             // Dịch thuật thuần túy sử dụng API Google Translate sẵn có (Nhanh, miễn phí, không tốn AI)
-            translationStrategy.translate(text, sourceLangCode, targetLangCode).onSuccess { translation ->
-                translatedText = translation
-                uiState = TranslateAndLookupUiState.Success
+            translationStrategy.translate(text, _sourceLangCode.value, _targetLangCode.value).onSuccess { translation ->
+                _translatedText.update { translation }
+                _uiState.update { TranslateAndLookupUiState.Success }
             }.onFailure { e ->
-                uiState = TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật thất bại. Vui lòng kiểm tra lại kết nối.")
+                _uiState.update { TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật thất bại. Vui lòng kiểm tra lại kết nối.") }
             }
         }
     }
 
     fun lookupWord() {
-        val word = inputText.trim()
+        val word = _inputText.value.trim()
         if (word.isBlank()) return
 
         viewModelScope.launch {
-            uiState = TranslateAndLookupUiState.Loading
-            lookupResult = null
-            wordSavedStatus.clear()
+            _uiState.update { TranslateAndLookupUiState.Loading }
+            _lookupResult.update { null }
+            _wordSavedStatus.update { emptyMap() }
 
             lookupStrategy.lookupWord(word).onSuccess { result ->
-                lookupResult = result
+                _lookupResult.update { result }
                 addWordToHistory(word)
                 checkIfWordsSaved(listOf(result))
-                uiState = TranslateAndLookupUiState.Success
+                _uiState.update { TranslateAndLookupUiState.Success }
             }.onFailure { e ->
-                uiState = TranslateAndLookupUiState.Error(e.message ?: "Không tìm thấy thông tin từ vựng này.")
+                _uiState.update { TranslateAndLookupUiState.Error(e.message ?: "Không tìm thấy thông tin từ vựng này.") }
             }
         }
     }
@@ -187,14 +212,18 @@ class TranslateAndLookupViewModel(
         val userId = getUserId() ?: return
         viewModelScope.launch {
             // Fetch words across all sets of user to check saved status
-            userSets.forEach { set ->
+            _userSets.value.forEach { set ->
                 repository.getWordsBySet(set.id).onSuccess { setWords ->
-                    setWords.forEach { savedWord ->
-                        words.forEach { word ->
-                            if (savedWord.word.equals(word.word, ignoreCase = true)) {
-                                wordSavedStatus[word.word] = true
+                    _wordSavedStatus.update { currentMap ->
+                        val statusMap = currentMap.toMutableMap()
+                        setWords.forEach { savedWord ->
+                            words.forEach { word ->
+                                if (savedWord.word.equals(word.word, ignoreCase = true)) {
+                                    statusMap[word.word] = true
+                                }
                             }
                         }
+                        statusMap
                     }
                 }
             }
@@ -209,7 +238,7 @@ class TranslateAndLookupViewModel(
             } else {
                 // Find or create default set "Quick Notes"
                 val defaultSetName = "Quick Notes"
-                val existingSet = userSets.find { it.title.equals(defaultSetName, ignoreCase = true) }
+                val existingSet = _userSets.value.find { it.title.equals(defaultSetName, ignoreCase = true) }
                 if (existingSet != null) {
                     existingSet.id
                 } else {
@@ -234,7 +263,11 @@ class TranslateAndLookupViewModel(
 
             val finalWord = word.copy(vocabularySetId = setId)
             repository.addWord(finalWord).onSuccess {
-                wordSavedStatus[word.word] = true
+                _wordSavedStatus.update { currentMap ->
+                    val statusMap = currentMap.toMutableMap()
+                    statusMap[word.word] = true
+                    statusMap
+                }
                 
                 // Refresh local session data in background for instant updates across the app
                 viewModelScope.launch {
@@ -253,6 +286,6 @@ class TranslateAndLookupViewModel(
     }
 
     fun resetState() {
-        uiState = TranslateAndLookupUiState.Idle
+        _uiState.update { TranslateAndLookupUiState.Idle }
     }
 }

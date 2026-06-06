@@ -119,35 +119,19 @@ fun MinLishApp() {
             // Splash Screen Route
             composable(Screen.Splash.route) {
                 SplashScreen(
-                    onDone = {
-                        val firebaseAuth = FirebaseAuth.getInstance()
-                        val currentUser = firebaseAuth.currentUser
-                        if (currentUser != null) {
-                            // Tự động kiểm tra setup profile để điều hướng chính xác
-                            val firestore = FirebaseFirestore.getInstance()
-                            firestore.collection("profiles").document(currentUser.uid).get()
-                                .addOnSuccessListener { doc ->
-                                    val isSetupComplete = doc.exists() && !doc.getString("learningGoal").isNullOrEmpty()
-                                    if (isSetupComplete) {
-                                        navController.navigate(Screen.Home.route) {
-                                            popUpTo(Screen.Splash.route) { inclusive = true }
-                                        }
-                                    } else {
-                                        navController.navigate(Screen.ProfileSetup.route) {
-                                            popUpTo(Screen.Splash.route) { inclusive = true }
-                                        }
-                                    }
-                                }
-                                .addOnFailureListener {
-                                    // Mặc định vào Home nếu lỗi kết nối nhưng phiên Auth vẫn khả dụng
-                                    navController.navigate(Screen.Home.route) {
-                                        popUpTo(Screen.Splash.route) { inclusive = true }
-                                    }
-                                }
-                        } else {
-                            navController.navigate(Screen.Onboarding.route) {
-                                popUpTo(Screen.Splash.route) { inclusive = true }
-                            }
+                    onNavigateToHome = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToProfileSetup = {
+                        navController.navigate(Screen.ProfileSetup.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToOnboarding = {
+                        navController.navigate(Screen.Onboarding.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
                         }
                     }
                 )
