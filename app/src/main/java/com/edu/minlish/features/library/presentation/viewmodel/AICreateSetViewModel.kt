@@ -132,11 +132,19 @@ class AICreateSetViewModel(
                                 lookupStrategy.lookupWord(aiWord.word).mapCatching { vocabWord ->
                                     // Trộn thông tin: Lấy nghĩa tiếng Việt và từ loại chuẩn ngữ cảnh từ AI ghi đè lên từ điển
                                     val updatedDefinitions = if (vocabWord.definitions.isNotEmpty()) {
+                                        val hasMatchingPos = vocabWord.definitions.any { it.pos.equals(aiWord.pos, ignoreCase = true) }
+                                        var overwrittenFirst = false
                                         vocabWord.definitions.map { def ->
-                                            def.copy(
-                                                pos = aiWord.pos.ifBlank { def.pos },
-                                                meaningVietnamese = aiWord.meaningVietnamese.ifBlank { def.meaningVietnamese }
-                                            )
+                                            val isMatch = def.pos.equals(aiWord.pos, ignoreCase = true) || (!hasMatchingPos && !overwrittenFirst)
+                                            if (isMatch) {
+                                                overwrittenFirst = true
+                                                def.copy(
+                                                    pos = aiWord.pos.ifBlank { def.pos },
+                                                    meaningVietnamese = aiWord.meaningVietnamese.ifBlank { def.meaningVietnamese }
+                                                )
+                                            } else {
+                                                def
+                                            }
                                         }
                                     } else {
                                         listOf(

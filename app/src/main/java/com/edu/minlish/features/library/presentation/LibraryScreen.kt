@@ -55,6 +55,26 @@ fun LibraryScreen(
     val progressMap by viewModel.progressMap.collectAsStateWithLifecycle()
     val filteredSets by viewModel.filteredSets.collectAsStateWithLifecycle()
 
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    LaunchedEffect(Unit) {
+        viewModel.loadUserSets()
+        viewModel.loadCategories()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUserSets()
+                viewModel.loadCategories()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val context = LocalContext.current
     var showCategoryManager by remember { mutableStateOf(false) }
     var showCreateOptionsSheet by remember { mutableStateOf(false) }
