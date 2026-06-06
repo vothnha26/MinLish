@@ -1,101 +1,140 @@
 package com.edu.minlish.core.util
 
-import android.content.Context
-import org.json.JSONObject
+import com.edu.minlish.features.learning.domain.model.UserWordProgress
+import java.util.Calendar
+import java.util.Date
+import kotlin.math.roundToInt
 
 /**
- * SM-2 spaced repetition utility using SharedPreferences + org.json (built-in Android).
- * No extra dependencies needed.
+ * Pure Kotlin Spaced Repetition Utility implementing the SM-2 algorithm.
+ * Used project-wide for updating word progress.
  */
-data class SpacedData(
-    val interval: Int = 1,       // days until next review
-    val repetition: Int = 0,     // number of consecutive correct answers
-    val factor: Double = 2.5,    // ease factor
-    val nextReview: Long = System.currentTimeMillis()
-)
-
 object SpacedRepetitionUtil {
 
-    private const val PREFS_NAME = "spaced_repetition"
-    private const val ONE_DAY_MS = 24L * 60 * 60 * 1000
+    private const val MIN_EASE_FACTOR = 1.3f
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    private fun keyFor(wordId: String) = "spaced_$wordId"
-
-    fun getData(context: Context, wordId: String): SpacedData? {
-        val str = prefs(context).getString(keyFor(wordId), null) ?: return null
-        return try {
-            val obj = JSONObject(str)
-            SpacedData(
-                interval = obj.getInt("interval"),
-                repetition = obj.getInt("repetition"),
-                factor = obj.getDouble("factor"),
-                nextReview = obj.getLong("nextReview")
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun saveData(context: Context, wordId: String, data: SpacedData) {
-        val obj = JSONObject().apply {
-            put("interval", data.interval)
-            put("repetition", data.repetition)
-            put("factor", data.factor)
-            put("nextReview", data.nextReview)
-        }
-        prefs(context).edit().putString(keyFor(wordId), obj.toString()).apply()
+    /**
+     * Creates an initial UserWordProgress for a newly learned word.
+     */
+    fun createInitialProgress(
+        userId: String,
+        wordId: String,
+        setId: String,
+        correct: Boolean,
+        intervalUnitMs: Long = 24L * 60 * 60 * 1000
+    ): UserWordProgress {
+        val now = Date()
+        val interval = 1
+        val repetitions = if (correct) 1 else 0
+        return UserWordProgress(
+            userId = userId,
+            wordId = wordId,
+            setId = setId,
+            easeFactor = 2.5f,
+            interval = interval,
+            repetitions = repetitions,
+            lastReviewedAt = now,
+            nextReviewDate = Date(now.time + interval * intervalUnitMs),
+            status = "learning"
+        )
     }
 
     /**
-     * Call this after each quiz answer to update the SM-2 state for a word.
-     * [correct] = true if user answered correctly, false otherwise.
+     * SM-2 Algorithm Implementation for Multi-level Rating (Flashcards)
+     * rating: 0 (Again), 1 (Hard), 2 (Good), 3 (Easy)
+     * Maps to quality: 0-5 in original SM-2. Here we simplify to 4 levels.
      */
-    fun updateData(context: Context, wordId: String, correct: Boolean) {
-        val existing = getData(context, wordId)
-        val now = System.currentTimeMillis()
+    fun calculateSM2ForRating(
+        current: UserWordProgress,
+        rating: Int,
+        intervalUnit: String = AppSettings.intervalUnit,
+        masteredThreshold: Int = AppSettings.masteredThreshold
+    ): UserWordProgress {
+        val q = when (rating) {
+            0 -> 0 // Again
+            1 -> 3 // Hard
+            2 -> 4 // Good
+            3 -> 5 // Easy
+            else -> 3
+        }
 
-        val updated = if (existing == null) {
-            if (correct)
-                SpacedData(interval = 1, repetition = 1, factor = 2.5, nextReview = now + ONE_DAY_MS)
-            else
-                SpacedData(interval = 1, repetition = 0, factor = 2.5, nextReview = now + ONE_DAY_MS)
+        var nextEaseFactor = current.easeFactor + (0.1f - (5 - q) * (0.08f + (5 - q) * 0.02f))
+        if (nextEaseFactor < MIN_EASE_FACTOR) nextEaseFactor = MIN_EASE_FACTOR
+
+        val nextRepetitions: Int
+        val nextInterval: Int
+
+        if (q < 3) {
+            nextRepetitions = 0
+            nextInterval = 1
         } else {
-            var rep = existing.repetition
-            var intv = existing.interval
-            var fac = existing.factor
-
-            if (correct) {
-                rep += 1
-                intv = when (rep) {
-                    1 -> 1
-                    2 -> 6
-                    else -> (intv * fac).toInt()
-                }
-            } else {
-                rep = 0
-                intv = 1
-                fac = (fac - 0.2).coerceAtLeast(1.3)
+            nextRepetitions = current.repetitions + 1
+            nextInterval = when (nextRepetitions) {
+                1 -> 1
+                2 -> 6
+                else -> (current.interval * nextEaseFactor).roundToInt()
             }
-
-            SpacedData(
-                interval = intv,
-                repetition = rep,
-                factor = fac,
-                nextReview = now + intv * ONE_DAY_MS
-            )
         }
 
-        saveData(context, wordId, updated)
+        val calendar = Calendar.getInstance()
+        when (intervalUnit) {
+            "MINUTES" -> calendar.add(Calendar.MINUTE, nextInterval)
+            "HOURS" -> calendar.add(Calendar.HOUR_OF_DAY, nextInterval)
+            else -> calendar.add(Calendar.DAY_OF_YEAR, nextInterval)
+        }
+
+        val status = if (nextInterval > masteredThreshold) "mastered" else "reviewing"
+
+        return current.copy(
+            easeFactor = nextEaseFactor,
+            interval = nextInterval,
+            repetitions = nextRepetitions,
+            nextReviewDate = calendar.time,
+            lastReviewedAt = Date(),
+            status = status
+        )
     }
 
     /**
-     * Returns true if this word is due for review now.
+     * SM-2 Algorithm Implementation for Binary Rating (Correct/Incorrect in Quizzes/Games)
      */
-    fun isDue(context: Context, wordId: String): Boolean {
-        val data = getData(context, wordId) ?: return true
-        return System.currentTimeMillis() >= data.nextReview
+    fun calculateSM2ForBinary(
+        current: UserWordProgress,
+        correct: Boolean,
+        intervalUnitMs: Long = 24L * 60 * 60 * 1000,
+        masteredThreshold: Int = AppSettings.masteredThreshold
+    ): UserWordProgress {
+        val now = Date()
+        var rep = current.repetitions
+        var intv = current.interval
+        var fac = current.easeFactor
+
+        if (correct) {
+            rep += 1
+            intv = when (rep) {
+                1 -> 1
+                2 -> 6
+                else -> (intv * fac).toInt().coerceAtLeast(1)
+            }
+        } else {
+            rep = 0
+            intv = 1
+            fac = (fac - 0.2f).coerceAtLeast(MIN_EASE_FACTOR)
+        }
+
+        val status = when {
+            intv > masteredThreshold -> "mastered"
+            rep >= 1 -> "reviewing"
+            else -> "learning"
+        }
+
+        return current.copy(
+            repetitions = rep,
+            interval = intv,
+            easeFactor = fac,
+            lastReviewedAt = now,
+            nextReviewDate = Date(now.time + intv * intervalUnitMs),
+            status = status
+        )
     }
 }

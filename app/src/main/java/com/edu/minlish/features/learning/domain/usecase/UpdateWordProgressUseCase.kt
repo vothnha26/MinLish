@@ -16,7 +16,6 @@ class UpdateWordProgressUseCase(
 ) {
     companion object {
         private const val ONE_DAY_MS = 24L * 60 * 60 * 1000
-        private const val MIN_EASE_FACTOR = 1.3f
     }
 
     suspend operator fun invoke(
@@ -28,56 +27,20 @@ class UpdateWordProgressUseCase(
         intervalUnitMs: Long = ONE_DAY_MS,      // đọc từ AppSettings ở ngoài
         masteredThreshold: Int = 30             // đọc từ AppSettings ở ngoài
     ): Result<Unit> {
-        val now = Date()
         val updated = if (existing == null) {
-            // Từ mới — khởi tạo progress
-            val interval = if (correct) 1 else 1
-            val repetitions = if (correct) 1 else 0
-            UserWordProgress(
+            com.edu.minlish.core.util.SpacedRepetitionUtil.createInitialProgress(
                 userId = userId,
                 wordId = wordId,
                 setId = setId,
-                easeFactor = 2.5f,
-                interval = interval,
-                repetitions = repetitions,
-                lastReviewedAt = now,
-                nextReviewDate = Date(now.time + interval * intervalUnitMs),
-                status = "learning"
+                correct = correct,
+                intervalUnitMs = intervalUnitMs
             )
         } else {
-            // Từ đã có progress — áp dụng SM-2
-            var rep = existing.repetitions
-            var intv = existing.interval
-            var fac = existing.easeFactor
-
-            if (correct) {
-                rep += 1
-                intv = when (rep) {
-                    1 -> 1
-                    2 -> 6
-                    else -> (intv * fac).toInt().coerceAtLeast(1)
-                }
-                // Ease factor không thay đổi khi chỉ đúng (SM-2 gốc dùng quality rating)
-                // Giữ nguyên factor để đơn giản hóa cho binary correct/incorrect
-            } else {
-                rep = 0
-                intv = 1
-                fac = (fac - 0.2f).coerceAtLeast(MIN_EASE_FACTOR)
-            }
-
-            val status = when {
-                intv > masteredThreshold -> "mastered"
-                rep >= 1 -> "reviewing"
-                else -> "learning"
-            }
-
-            existing.copy(
-                repetitions = rep,
-                interval = intv,
-                easeFactor = fac,
-                lastReviewedAt = now,
-                nextReviewDate = Date(now.time + intv * intervalUnitMs),
-                status = status
+            com.edu.minlish.core.util.SpacedRepetitionUtil.calculateSM2ForBinary(
+                current = existing,
+                correct = correct,
+                intervalUnitMs = intervalUnitMs,
+                masteredThreshold = masteredThreshold
             )
         }
 

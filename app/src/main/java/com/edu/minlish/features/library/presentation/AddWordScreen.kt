@@ -30,23 +30,26 @@ import com.edu.minlish.features.library.presentation.viewmodel.AddWordViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AddWordUiState
 import com.edu.minlish.features.library.domain.model.WordDefinition
 
+// Màn hình chính dùng để Thêm mới hoặc Chỉnh sửa từ vựng
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddWordScreen(
-    setId: String,
-    wordId: String? = null,
+    setId: String,          // ID của bộ từ vựng (Word Set) mà từ này thuộc về
+    wordId: String? = null, // ID của từ vựng nếu đang ở chế độ chỉnh sửa (null nếu thêm mới)
     onBack: () -> Unit,
     onAddSuccess: () -> Unit,
     viewModel: AddWordViewModel = viewModel()
 ) {
     val uiState = viewModel.uiState
 
+    // Tự động tải thông tin từ cũ lên nếu có truyền wordId (chế độ Edit)
     LaunchedEffect(wordId) {
         if (wordId != null) {
             viewModel.initEditMode(wordId)
         }
     }
 
+    // Lắng nghe trạng thái UI, nếu lưu từ thành công (Success) thì kích hoạt callback để quay về màn hình trước
     LaunchedEffect(uiState) {
         if (uiState is AddWordUiState.Success) {
             onAddSuccess()
@@ -85,7 +88,10 @@ fun AddWordScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // [UI] Ảnh minh họa của từ vựng (chỉ hiển thị khi đã có link ảnh từ API/AI)
                     if (viewModel.imageUrl.isNotBlank()) {
                         AsyncImage(
                             model = viewModel.imageUrl,
@@ -100,17 +106,22 @@ fun AddWordScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // [UI] Ô nhập từ vựng gốc (Word)
                         Box(modifier = Modifier.weight(1f)) {
                             MinLishTextField(value = viewModel.wordText, onValueChange = { viewModel.wordText = it }, label = "Word", placeholder = "e.g. Resilience")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
+                        // [UI] Nút tìm kiếm (kính lúp) - dùng tra cứu nhanh qua Dictionary API bên ngoài
                         IconButton(
                             onClick = { viewModel.smartSearch() },
-                            modifier = Modifier.padding(top = 8.dp).background(Primary.copy(alpha = 0.1f), CircleShape)
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .background(Primary.copy(alpha = 0.1f), CircleShape)
                         ) {
                             Icon(Icons.Default.Search, contentDescription = "Dictionary Search", tint = Primary)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
+                        // [UI] Nút "AI Fill" (lấp lánh) - dùng AI tự dịch nghĩa và điền thông tin tự động
                         Button(
                             onClick = { viewModel.aiAutoFill() },
                             colors = ButtonDefaults.buttonColors(containerColor = Primary),
@@ -124,9 +135,11 @@ fun AddWordScreen(
                     }
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // [UI] Ô nhập phiên âm của từ (Pronunciation)
                         Box(modifier = Modifier.weight(1f)) {
                             MinLishTextField(value = viewModel.pronunciationText, onValueChange = { viewModel.pronunciationText = it }, label = "Pronunciation", placeholder = "/rɪˈzɪl.jəns/")
                         }
+                        // [UI] Nút loa phát âm thanh (Play Audio) - chỉ xuất hiện khi đã tìm được link file âm thanh phát âm từ API
                         if (viewModel.audioUrl.isNotBlank()) {
                             IconButton(onClick = { viewModel.playAudio() }) {
                                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Play Audio", tint = Primary)
@@ -137,6 +150,7 @@ fun AddWordScreen(
             }
 
             // Section 2: Meanings
+            // Add Manual
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "MEANINGS & DEFINITIONS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
                 TextButton(onClick = { viewModel.addDefinitionField() }) {
@@ -146,6 +160,7 @@ fun AddWordScreen(
                 }
             }
 
+            // Duyệt và hiển thị danh sách các định nghĩa/nghĩa của từ (mỗi từ có thể có nhiều nghĩa)
             viewModel.definitions.forEachIndexed { index, definition ->
                 DefinitionCard(
                     definition = definition,
@@ -155,20 +170,25 @@ fun AddWordScreen(
                 )
             }
 
-            // Section 3: Extra
+            // Section 3: Các thông tin bổ sung khác (Extra)
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // [UI] Ô nhập cụm từ hay đi kèm (Collocations)
                     MinLishTextField(value = viewModel.collocationText, onValueChange = { viewModel.collocationText = it }, label = "Collocations", placeholder = "e.g. show resilience, built-in resilience")
+                    // [UI] Ô nhập ghi chú cá nhân của người học (Personal Note)
                     MinLishTextField(value = viewModel.personalNoteText, onValueChange = { viewModel.personalNoteText = it }, label = "Personal Note", placeholder = "Used in psychology and engineering.")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // [UI] Nút chính để Lưu từ vựng (Save Word / Save Changes) - Vô hiệu hóa khi ô Word trống hoặc đang load dữ liệu
             MinLishButton(
                 text = if (wordId != null) "Save Changes" else "Save Word",
                 onClick = { viewModel.saveWord(setId) },
@@ -176,8 +196,11 @@ fun AddWordScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             
+            // [UI] Text hiển thị thông báo lỗi màu đỏ nếu quá trình Lưu/Gọi API xảy ra sự cố
             if (uiState is AddWordUiState.Error) {
-                Text(text = uiState.message, color = Color.Red, fontSize = 14.sp, modifier = Modifier.fillMaxWidth().clickable { viewModel.resetError() })
+                Text(text = uiState.message, color = Color.Red, fontSize = 14.sp, modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.resetError() })
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -195,6 +218,7 @@ fun AddWordScreen(
     }
 }
 
+// Thẻ hiển thị chi tiết một nghĩa của từ (gồm loại từ POS, nghĩa tiếng Việt, định nghĩa tiếng Anh, ví dụ, từ đồng nghĩa/phản nghĩa)
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DefinitionCard(
@@ -221,15 +245,19 @@ fun DefinitionCard(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // [UI] Ô nhập từ loại (POS - Part of Speech, ví dụ: Noun, Verb, Adj)
                 Box(modifier = Modifier.width(100.dp)) {
                     MinLishTextField(value = definition.pos, onValueChange = { onUpdate(definition.copy(pos = it)) }, label = "POS", placeholder = "Noun")
                 }
+                // [UI] Ô nhập nghĩa tiếng Việt (Vietnamese Meaning)
                 Box(modifier = Modifier.weight(1f)) {
                     MinLishTextField(value = definition.meaningVietnamese, onValueChange = { onUpdate(definition.copy(meaningVietnamese = it)) }, label = "Vietnamese Meaning", placeholder = "Sự kiên cường")
                 }
             }
 
+            // [UI] Ô nhập giải thích định nghĩa bằng tiếng Anh (English Definition)
             MinLishTextField(value = definition.definitionEnglish, onValueChange = { onUpdate(definition.copy(definitionEnglish = it)) }, label = "English Definition", placeholder = "The capacity to recover quickly...")
+            // [UI] Ô nhập câu ví dụ thực tế sử dụng từ này (Example Sentence)
             MinLishTextField(value = definition.exampleSentence, onValueChange = { onUpdate(definition.copy(exampleSentence = it)) }, label = "Example Sentence", placeholder = "He showed great resilience during the crisis.")
             
             // Synonyms & Antonyms with Chips
@@ -250,6 +278,7 @@ fun DefinitionCard(
     }
 }
 
+// Component quản lý danh sách từ đồng nghĩa/phản nghĩa dưới dạng Chip (hỗ trợ hiển thị và thêm/xóa nhanh)
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun WordChipSection(
@@ -277,14 +306,18 @@ fun WordChipSection(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Remove",
-                            modifier = Modifier.size(16.dp).clickable { onRemove(word) }
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable { onRemove(word) }
                         )
                     }
                 )
             }
             
             // Inline add field
-            Box(modifier = Modifier.width(120.dp).height(32.dp)) {
+            Box(modifier = Modifier
+                .width(120.dp)
+                .height(32.dp)) {
                 TextField(
                     value = textFieldValue,
                     onValueChange = { textFieldValue = it },
@@ -313,6 +346,7 @@ fun WordChipSection(
     }
 }
 
+// Hộp thoại (Dialog) cho phép người dùng lựa chọn các nghĩa phù hợp được tìm thấy từ API/AI để import vào từ vựng hiện tại
 @Composable
 fun DefinitionSelectionDialog(
     selectionItems: List<com.edu.minlish.features.library.presentation.viewmodel.SelectionItem>,

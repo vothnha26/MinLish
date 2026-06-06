@@ -101,11 +101,11 @@ class FlashcardViewModel(
         viewModelScope.launch {
             isSubmittingRating = true
             try {
-                val updatedProgress = calculateSM2(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
+                val updatedProgress = com.edu.minlish.core.util.SpacedRepetitionUtil.calculateSM2ForRating(progress ?: UserWordProgress(userId = currentUser.id, wordId = word.id, setId = word.vocabularySetId), rating)
                 val progressResult = repository.updateProgress(updatedProgress)
                 if (progressResult.isFailure) {
                     val message = progressResult.exceptionOrNull()?.message ?: "Failed to update progress"
-                    Log.e(TAG, "Failed to update progress for wordId=${word.id}: $message")
+//                    Log.e(TAG, "Failed to update progress for wordId=${word.id}: $message")
                     uiState = FlashcardUiState.Error(message)
                     return@launch
                 }
@@ -169,55 +169,5 @@ class FlashcardViewModel(
         }
     }
 
-    /**
-     * SM-2 Algorithm Implementation
-     * rating: 0 (Again), 1 (Hard), 2 (Good), 3 (Easy)
-     * Maps to quality: 0-5 in original SM-2. Here we simplify to 4 levels.
-     */
-    private fun calculateSM2(current: UserWordProgress, rating: Int): UserWordProgress {
-        val q = when(rating) {
-            0 -> 0 // Again
-            1 -> 3 // Hard
-            2 -> 4 // Good
-            3 -> 5 // Easy
-            else -> 3
-        }
 
-        var nextEaseFactor = current.easeFactor + (0.1f - (5 - q) * (0.08f + (5 - q) * 0.02f))
-        if (nextEaseFactor < 1.3f) nextEaseFactor = 1.3f
-
-        val nextRepetitions: Int
-        val nextInterval: Int
-
-        if (q < 3) {
-            nextRepetitions = 0
-            nextInterval = 1
-        } else {
-            nextRepetitions = current.repetitions + 1
-            nextInterval = when (nextRepetitions) {
-                1 -> 1
-                2 -> 6
-                else -> (current.interval * nextEaseFactor).roundToInt()
-            }
-        }
-
-        val unit = com.edu.minlish.core.util.AppSettings.intervalUnit
-        val calendar = Calendar.getInstance()
-        when (unit) {
-            "MINUTES" -> calendar.add(Calendar.MINUTE, nextInterval)
-            "HOURS" -> calendar.add(Calendar.HOUR_OF_DAY, nextInterval)
-            else -> calendar.add(Calendar.DAY_OF_YEAR, nextInterval)
-        }
-
-        val masteredThreshold = com.edu.minlish.core.util.AppSettings.masteredThreshold
-
-        return current.copy(
-            easeFactor = nextEaseFactor,
-            interval = nextInterval,
-            repetitions = nextRepetitions,
-            nextReviewDate = calendar.time,
-            lastReviewedAt = Date(),
-            status = if (nextInterval > masteredThreshold) "mastered" else "reviewing"
-        )
-    }
 }

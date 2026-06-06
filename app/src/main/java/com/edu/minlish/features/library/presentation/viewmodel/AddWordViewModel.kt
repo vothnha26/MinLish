@@ -141,10 +141,8 @@ class AddWordViewModel(
 
                         val audio = firstEntry?.phonetics?.firstOrNull { !it.audio.isNullOrBlank() }?.audio ?: ""
                         audioUrl = if (audio.startsWith("//")) "https:$audio" else audio
-                        
-                        // We will collect definitions we want to display.
-                        // For each part of speech, we take at most 3 definitions.
-                        
+
+                        // For each part of speech, take at most 3 definitions.
                         val rawItems = mutableListOf<SelectionItem>()
                         entries.forEachIndexed { entryIdx, entry ->
                             val entryPhonetic = entry.phonetic 
@@ -235,35 +233,24 @@ class AddWordViewModel(
     fun importSelectedDefinitions(selected: List<SelectionItem>) {
         if (selected.isEmpty()) return
 
-        // 1. Update general info (Pronunciation & Audio) from the first selected item
-        val firstSelected = selected.firstOrNull()
-        if (firstSelected != null) {
-            pronunciationText = firstSelected.phonetic ?: ""
-        }
-        
-        // Extract first valid audio URL from searchResults
-        val firstEntry = searchResults.firstOrNull()
-        if (firstEntry != null) {
-            val audio = firstEntry.phonetics.firstOrNull { !it.audio.isNullOrBlank() }?.audio ?: ""
-            audioUrl = if (audio.startsWith("//")) "https:$audio" else audio
-        }
-
-        // 2. Clear initial empty state if needed
+        // 1. Clear initial empty state if needed
         if (definitions.size == 1 && definitions[0].definitionEnglish.isBlank() && definitions[0].meaningVietnamese.isBlank()) {
             definitions.clear()
         }
 
-        // 3. Add selected definitions
+        // 2. Add selected definitions
         selected.forEach { item ->
             val entry = searchResults.getOrNull(item.entryIndex)
             val meaning = entry?.meanings?.getOrNull(item.meaningIndex)
             val definition = meaning?.definitions?.getOrNull(item.definitionIndex)
             
-            val meaningSynonyms = meaning?.synonyms?.take(3) ?: emptyList()
-            val meaningAntonyms = meaning?.antonyms?.take(3) ?: emptyList()
-            
-            val allSyns = ((definition?.synonyms ?: emptyList()) + meaningSynonyms).distinct().take(5)
-            val allAnts = ((definition?.antonyms ?: emptyList()) + meaningAntonyms).distinct().take(5)
+            val allSyns = ((definition?.synonyms ?: emptyList()) + (meaning?.synonyms ?: emptyList()))
+                .distinct()
+                .take(5)
+                
+            val allAnts = ((definition?.antonyms ?: emptyList()) + (meaning?.antonyms ?: emptyList()))
+                .distinct()
+                .take(5)
             
             definitions.add(
                 WordDefinition(
