@@ -189,6 +189,14 @@ class AddWordViewModel(
                                     // Default selected is true only for the first definition of each meaning
                                     val isDefaultSelected = defIdx == 0
                                     
+                                    val allSyns = ((definition.synonyms) + (meaning.synonyms ?: emptyList()))
+                                        .distinct()
+                                        .take(5)
+                                        
+                                    val allAnts = ((definition.antonyms) + (meaning.antonyms ?: emptyList()))
+                                        .distinct()
+                                        .take(5)
+
                                     rawItems.add(
                                         SelectionItem(
                                             entryIndex = entryIdx,
@@ -198,15 +206,59 @@ class AddWordViewModel(
                                             definition = definition.definition,
                                             example = definition.example,
                                             phonetic = entryPhonetic,
-                                            meaningVietnamese = translationResult, // populated with the main word's translation
+                                            meaningVietnamese = translationResult, // fallback
+                                            synonyms = allSyns,
+                                            antonyms = allAnts,
                                             isDefaultSelected = isDefaultSelected
                                         )
                                     )
                                 }
                             }
                         }
+
+                        // Try to improve meanings with AI if available
+                        try {
+                            val aiResult = AIModule.geminiService.lookupWordDetail(cleanWord)
+                            aiResult.onSuccess { jsonStr ->
+                                val cleanJson = if (jsonStr.contains("```json")) {
+                                    jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
+                                } else if (jsonStr.contains("```")) {
+                                    jsonStr.substringAfter("```").substringBeforeLast("```").trim()
+                                } else {
+                                    jsonStr
+                                }
+                                val aiData = Gson().fromJson(cleanJson, AIAutoFillResult::class.java)
+                                if (aiData != null && aiData.definitions.isNotEmpty()) {
+                                    // Map AI definitions to selection items or just add them if they are better
+                                    // For simplicity and quality, if AI succeeds, we combine or prefer AI meanings
+                                    val aiItems = aiData.definitions.map { aiDef ->
+                                        SelectionItem(
+                                            entryIndex = -1, // Mark as AI source
+                                            meaningIndex = -1,
+                                            definitionIndex = -1,
+                                            partOfSpeech = aiDef.pos,
+                                            definition = aiDef.definitionEnglish,
+                                            example = aiDef.exampleSentence,
+                                            phonetic = aiData.pronunciation,
+                                            meaningVietnamese = aiDef.meaningVietnamese,
+                                            synonyms = aiDef.synonyms,
+                                            antonyms = aiDef.antonyms,
+                                            isDefaultSelected = true
+                                        )
+                                    }
+                                    // If AI provides good data, we can either replace or append. 
+                                    // Let's replace the rawItems with AI items as they have specific meanings.
+                                    _selectionItems.update { aiItems }
+                                } else {
+                                    _selectionItems.update { rawItems }
+                                }
+                            }.onFailure {
+                                _selectionItems.update { rawItems }
+                            }
+                        } catch (e: Exception) {
+                            _selectionItems.update { rawItems }
+                        }
                         
-                        _selectionItems.update { rawItems }
                         _showSelectionDialog.update { true }
                         _uiState.update { AddWordUiState.Idle }
                     } else {
@@ -216,51 +268,6 @@ class AddWordViewModel(
                 .onFailure { e ->
                     _uiState.update { AddWordUiState.Error(e.message ?: "Failed to fetch word details") }
                 }
-        }
-    }
-
-    fun aiAutoFill() {
-        if (_wordText.value.isBlank()) return
-        
-        viewModelScope.launch {
-            _uiState.update { AddWordUiState.Loading }
-            
-            // Auto Image from LoremFlickr
-            val cleanWord = _wordText.value.lowercase().trim()
-            val lockSeed = Math.abs(cleanWord.hashCode())
-            _imageUrl.update { "https://loremflickr.com/600/400/$cleanWord?lock=$lockSeed" }
-            
-            val result = AIModule.geminiService.generateAutoFillContent(cleanWord)
-            
-            result.onSuccess { jsonStr ->
-                try {
-                    // Extract JSON if it is wrapped in markdown code blocks by mistake
-                    val cleanJson = if (jsonStr.contains("```json")) {
-                        jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
-                    } else if (jsonStr.contains("```")) {
-                         jsonStr.substringAfter("```").substringBeforeLast("```").trim()
-                    } else {
-                        jsonStr
-                    }
-                    
-                    val autoFillResult = Gson().fromJson(cleanJson, AIAutoFillResult::class.java)
-                    
-                    _wordText.update { autoFillResult.word.ifBlank { it } }
-                    _pronunciationText.update { autoFillResult.pronunciation }
-                    _collocationText.update { autoFillResult.collocations }
-                    _personalNoteText.update { autoFillResult.personalNote }
-                    
-                    if (autoFillResult.definitions.isNotEmpty()) {
-                        _definitions.update { autoFillResult.definitions }
-                    }
-                    
-                    _uiState.update { AddWordUiState.Idle }
-                } catch (e: Exception) {
-                    _uiState.update { AddWordUiState.Error("Lỗi phân tích dữ liệu AI: ${e.message}") }
-                }
-            }.onFailure { e ->
-                _uiState.update { AddWordUiState.Error("AI Error: ${e.message}") }
-            }
         }
     }
 
@@ -274,28 +281,16 @@ class AddWordViewModel(
                 newList.clear()
             }
 
-            // 2. Add selected definitions
+            // 2. Add selected definitions using data directly from SelectionItem
             selected.forEach { item ->
-                val entry = _searchResults.value.getOrNull(item.entryIndex)
-                val meaning = entry?.meanings?.getOrNull(item.meaningIndex)
-                val definition = meaning?.definitions?.getOrNull(item.definitionIndex)
-                
-                val allSyns = ((definition?.synonyms ?: emptyList()) + (meaning?.synonyms ?: emptyList()))
-                    .distinct()
-                    .take(5)
-                    
-                val allAnts = ((definition?.antonyms ?: emptyList()) + (meaning?.antonyms ?: emptyList()))
-                    .distinct()
-                    .take(5)
-                
                 newList.add(
                     WordDefinition(
                         pos = item.partOfSpeech,
                         definitionEnglish = item.definition,
                         meaningVietnamese = item.meaningVietnamese,
                         exampleSentence = item.example ?: "",
-                        synonyms = allSyns,
-                        antonyms = allAnts
+                        synonyms = item.synonyms,
+                        antonyms = item.antonyms
                     )
                 )
             }
@@ -362,5 +357,7 @@ data class SelectionItem(
     val example: String?,
     val phonetic: String?,
     val meaningVietnamese: String = "",
+    val synonyms: List<String> = emptyList(),
+    val antonyms: List<String> = emptyList(),
     val isDefaultSelected: Boolean = false
 )

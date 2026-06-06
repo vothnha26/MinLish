@@ -50,6 +50,25 @@ class DictionaryApiLookupStrategy(
 
             // Map definitions
             val mappedDefinitions = mutableListOf<WordDefinition>()
+            
+            // Try to use AI to get better Vietnamese meanings for each definition
+            val aiDefinitionsResult = try {
+                val aiResponse = com.edu.minlish.core.ai.AIModule.geminiService.lookupWordDetail(cleanWord)
+                if (aiResponse.isSuccess) {
+                    val jsonStr = aiResponse.getOrThrow()
+                    val cleanJson = if (jsonStr.contains("```json")) {
+                        jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
+                    } else if (jsonStr.contains("```")) {
+                        jsonStr.substringAfter("```").substringBeforeLast("```").trim()
+                    } else {
+                        jsonStr
+                    }
+                    com.google.gson.Gson().fromJson(cleanJson, com.edu.minlish.core.ai.model.AIAutoFillResult::class.java).definitions
+                } else emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+
             entries.forEach { entry ->
                 entry.meanings.forEach { meaning ->
                     meaning.definitions.take(2).forEach { def ->
@@ -58,11 +77,16 @@ class DictionaryApiLookupStrategy(
                         val allSyns = (def.synonyms + meaningSyns).distinct().take(5)
                         val allAnts = (def.antonyms + meaningAnts).distinct().take(5)
 
+                        // Try to find a matching AI definition for this POS
+                        val matchingAiDef = aiDefinitionsResult.find { 
+                            it.pos.equals(meaning.partOfSpeech, ignoreCase = true) 
+                        } ?: aiDefinitionsResult.firstOrNull()
+
                         mappedDefinitions.add(
                             WordDefinition(
                                 pos = meaning.partOfSpeech,
                                 definitionEnglish = def.definition,
-                                meaningVietnamese = translationResult, // fallback to overall translation
+                                meaningVietnamese = matchingAiDef?.meaningVietnamese ?: translationResult,
                                 exampleSentence = def.example ?: "",
                                 synonyms = allSyns,
                                 antonyms = allAnts
@@ -76,7 +100,7 @@ class DictionaryApiLookupStrategy(
                 word = cleanWord,
                 pronunciation = phonetic,
                 audioUrl = audioUrl,
-                definitions = mappedDefinitions.take(3), // Limit to top 3 definitions
+                definitions = if (mappedDefinitions.isNotEmpty()) mappedDefinitions.take(5) else aiDefinitionsResult.take(3),
                 collocations = collocationsResult.joinToString(", "),
                 imageUrl = "https://loremflickr.com/600/400/$cleanWord?lock=${Math.abs(cleanWord.hashCode())}"
             )

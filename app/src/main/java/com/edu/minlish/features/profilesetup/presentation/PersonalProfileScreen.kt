@@ -34,7 +34,6 @@ fun PersonalProfileScreen(
     onLogout: () -> Unit,
     onEditProfile: () -> Unit,
     onNavigateToNotifications: () -> Unit,
-    onNavigateToAdminNotifications: () -> Unit,
     onSettingsClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
@@ -161,13 +160,6 @@ fun PersonalProfileScreen(
                             title = "Notifications",
                             onClick = onNavigateToNotifications
                         )
-                        if (user.email == "admin@minlish.com" || user.email.contains("admin")) {
-                            ProfileMenuItem(
-                                icon = Icons.Default.AdminPanelSettings,
-                                title = "Admin Console (Notifications)",
-                                onClick = onNavigateToAdminNotifications
-                            )
-                        }
                         ProfileMenuItem(
                             icon = Icons.Default.Security,
                             title = "Security & Privacy",

@@ -35,7 +35,6 @@ import com.edu.minlish.features.learning.presentation.WordDetailScreen
 import com.edu.minlish.features.learning.presentation.QuizGameScreen
 import com.edu.minlish.features.learning.presentation.GameHubScreen
 import com.edu.minlish.features.notification.presentation.NotificationListScreen
-import com.edu.minlish.features.notification.presentation.AdminNotificationScreen
 import com.edu.minlish.features.speaking.presentation.SpeakingScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -235,9 +234,6 @@ fun MinLishApp() {
                     onNavigateToNotifications = {
                         navController.navigate(Screen.Notifications.route)
                     },
-                    onNavigateToAdminNotifications = {
-                        navController.navigate(Screen.AdminNotifications.route)
-                    },
                     onSettingsClick = {
                         navController.navigate(Screen.Settings.route)
                     }
@@ -434,13 +430,6 @@ fun MinLishApp() {
             // User Notifications Route
             composable(Screen.Notifications.route) {
                 NotificationListScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            // Admin Notifications Route
-            composable(Screen.AdminNotifications.route) {
-                AdminNotificationScreen(
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -131,18 +131,6 @@ fun AddWordScreen(
                         ) {
                             Icon(Icons.Default.Search, contentDescription = "Dictionary Search", tint = Primary)
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        // [UI] Nút "AI Fill" (lấp lánh) - dùng AI tự dịch nghĩa và điền thông tin tự động
-                        Button(
-                            onClick = { viewModel.aiAutoFill() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                            modifier = Modifier.padding(top = 8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = "AI Auto-Fill", modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("AI Fill", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
                     }
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
