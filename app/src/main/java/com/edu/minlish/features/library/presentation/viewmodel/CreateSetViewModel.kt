@@ -43,8 +43,7 @@ class CreateSetViewModel(
     private val _categories = MutableStateFlow<List<String>>(listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"))
     val categories: StateFlow<List<String>> = _categories.asStateFlow()
 
-    private val _loadedSetId = MutableStateFlow<String?>(null)
-    val loadedSetId: StateFlow<String?> = _loadedSetId.asStateFlow()
+    private var loadedSetId: String? = null
     
     private var isInitialized = false
 
@@ -84,7 +83,7 @@ class CreateSetViewModel(
     fun initEditMode(setId: String) {
         if (isInitialized) return
         isInitialized = true
-        _loadedSetId.update { setId }
+        loadedSetId = setId
         viewModelScope.launch {
             _uiState.update { CreateSetUiState.Loading }
             val setRepoResult: Result<VocabularySet> = repository.getSetById(setId)
@@ -116,14 +115,14 @@ class CreateSetViewModel(
         viewModelScope.launch {
             _uiState.update { CreateSetUiState.Loading }
             val set = VocabularySet(
-                id = _loadedSetId.value ?: "",
+                id = loadedSetId ?: "",
                 creatorId = currentUser.id,
                 title = _title.value,
                 description = _description.value,
                 category = _category.value
             )
 
-            val result: Result<Unit> = if (_loadedSetId.value != null) {
+            val result: Result<Unit> = if (loadedSetId != null) {
                 repository.updateSet(set)
             } else {
                 repository.createSet(set)
@@ -140,7 +139,7 @@ class CreateSetViewModel(
     }
 
     fun deleteSet(onSuccess: () -> Unit) {
-        val setId = _loadedSetId.value ?: return
+        val setId = loadedSetId ?: return
         viewModelScope.launch {
             _uiState.update { CreateSetUiState.Loading }
             repository.deleteSet(setId)

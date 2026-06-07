@@ -4,13 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edu.minlish.core.ai.AIModule
 import com.edu.minlish.features.library.data.repository.FirestoreVocabularyRepositoryImpl
-import com.edu.minlish.features.library.data.repository.GoogleTranslationStrategy
 import com.edu.minlish.features.library.data.repository.LookupStrategyFactory
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.repository.LookupStrategy
-import com.edu.minlish.features.library.domain.repository.TranslationStrategy
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
 import com.edu.minlish.core.util.SessionDataManager
 import com.edu.minlish.core.util.AppSettings
@@ -45,7 +43,6 @@ data class ExtractedWordItem(
 
 class TranslateAndLookupViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
-    private val translationStrategy: TranslationStrategy = GoogleTranslationStrategy(),
     private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = true),
     private val getUserId: () -> String? = { FirebaseAuth.getInstance().currentUser?.uid }
 ) : ViewModel() {

@@ -7,10 +7,6 @@ import com.edu.minlish.features.library.domain.repository.LookupStrategy
  */
 object LookupStrategyFactory {
     fun create(useAi: Boolean = true): LookupStrategy {
-        return if (useAi) {
-            GeminiLookupStrategy()
-        } else {
-            DictionaryApiLookupStrategy()
-        }
+        return GeminiLookupStrategy()
     }
 }

@@ -309,15 +309,15 @@ fun DefinitionCard(
                 Box(modifier = Modifier.width(100.dp)) {
                     MinLishTextField(value = definition.pos, onValueChange = { onUpdate(definition.copy(pos = it)) }, label = "POS", placeholder = "Noun")
                 }
-                // [UI] Ô nhập nghĩa tiếng Việt (Vietnamese Meaning)
+                // Ô nhập nghĩa tiếng Việt (Vietnamese Meaning)
                 Box(modifier = Modifier.weight(1f)) {
                     MinLishTextField(value = definition.meaningVietnamese, onValueChange = { onUpdate(definition.copy(meaningVietnamese = it)) }, label = "Vietnamese Meaning", placeholder = "Sự kiên cường")
                 }
             }
 
-            // [UI] Ô nhập giải thích định nghĩa bằng tiếng Anh (English Definition)
+            // Ô nhập giải thích định nghĩa bằng tiếng Anh (English Definition)
             MinLishTextField(value = definition.definitionEnglish, onValueChange = { onUpdate(definition.copy(definitionEnglish = it)) }, label = "English Definition", placeholder = "The capacity to recover quickly...")
-            // [UI] Ô nhập câu ví dụ thực tế sử dụng từ này (Example Sentence)
+            // Ô nhập câu ví dụ thực tế sử dụng từ này (Example Sentence)
             MinLishTextField(value = definition.exampleSentence, onValueChange = { onUpdate(definition.copy(exampleSentence = it)) }, label = "Example Sentence", placeholder = "He showed great resilience during the crisis.")
             
             // Synonyms & Antonyms with Chips
@@ -431,7 +431,9 @@ fun WordChipSection(
       }
   }
 
-// Hộp thoại (Dialog) cho phép người dùng lựa chọn các nghĩa phù hợp được tìm thấy từ API/AI để import vào từ vựng hiện tại
+
+
+// Hộp thoại (Dialog) cho phép người dùng lựa chọn các nghĩa phù hợp được tìm thấy từ AI để import vào từ vựng hiện tại
 @Composable
 fun DefinitionSelectionDialog(
     selectionItems: List<com.edu.minlish.features.library.presentation.viewmodel.SelectionItem>,

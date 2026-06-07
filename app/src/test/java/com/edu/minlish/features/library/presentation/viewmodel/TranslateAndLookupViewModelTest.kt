@@ -6,7 +6,6 @@ import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.repository.LookupStrategy
-import com.edu.minlish.features.library.domain.repository.TranslationStrategy
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +21,6 @@ class TranslateAndLookupViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var fakeRepository: FakeVocabularyRepository
-    private lateinit var fakeTranslationStrategy: FakeTranslationStrategy
     private lateinit var fakeLookupStrategy: FakeLookupStrategy
     private lateinit var viewModel: TranslateAndLookupViewModel
 
@@ -31,7 +29,6 @@ class TranslateAndLookupViewModelTest {
         Dispatchers.setMain(testDispatcher)
 
         fakeRepository = FakeVocabularyRepository()
-        fakeTranslationStrategy = FakeTranslationStrategy()
         fakeLookupStrategy = FakeLookupStrategy()
 
         // Khởi tạo một số bộ từ giả lập
@@ -46,7 +43,6 @@ class TranslateAndLookupViewModelTest {
 
         viewModel = TranslateAndLookupViewModel(
             repository = fakeRepository,
-            translationStrategy = fakeTranslationStrategy,
             lookupStrategy = fakeLookupStrategy,
             getUserId = { "test_user_id" }
         )
@@ -254,14 +250,6 @@ class FakeVocabularyRepository : VocabularyRepository {
     override suspend fun getWordById(wordId: String): Result<VocabularyWord> {
         val w = words.find { it.id == wordId }
         return if (w != null) Result.success(w) else Result.failure(Exception("Not found"))
-    }
-}
-
-class FakeTranslationStrategy : TranslationStrategy {
-    var lastText = ""
-    override suspend fun translate(text: String, sourceLang: String, targetLang: String): Result<String> {
-        lastText = text
-        return Result.success("Bản dịch giả lập của: $text")
     }
 }
 
