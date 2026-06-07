@@ -378,7 +378,7 @@ fun WordItemCard(
     val isMastered = progress != null && (progress.status == "mastered" || progress.interval > masteredThreshold)
     val dotColor = when {
         isMastered -> Color(0xFF4CAF50) // Green for Mastered
-        progress != null -> Primary // Blue/Primary for Reviewing/Learning
+        progress != null -> Color(0xFF2196F3) // Blue for Reviewing/Learning
         else -> Color(0xFFBDBDBD) // Grey for Unstudied
     }
 
