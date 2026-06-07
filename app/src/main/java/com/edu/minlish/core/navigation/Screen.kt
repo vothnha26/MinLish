@@ -48,8 +48,6 @@ sealed class Screen(val route: String) {
         fun createRoute(setId: String, wordId: String) = "edit_word/$setId/$wordId"
     }
 
-    object Notifications : Screen("notifications")
-    
     object Speaking : Screen("speaking")
     object AICreateWordSet : Screen("ai_create_word_set")
     object QuizGame : Screen("quiz_game?setId={setId}&modes={modes}&count={count}") {

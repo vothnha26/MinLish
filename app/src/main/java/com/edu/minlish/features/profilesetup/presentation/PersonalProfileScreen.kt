@@ -33,7 +33,6 @@ import com.edu.minlish.features.profilesetup.presentation.viewmodel.ProfileUiSta
 fun PersonalProfileScreen(
     onLogout: () -> Unit,
     onEditProfile: () -> Unit,
-    onNavigateToNotifications: () -> Unit,
     onSettingsClick: () -> Unit,
     viewModel: ProfileViewModel = viewModel()
 ) {
@@ -154,11 +153,6 @@ fun PersonalProfileScreen(
                             icon = Icons.Default.Edit,
                             title = "Edit Profile",
                             onClick = onEditProfile
-                        )
-                        ProfileMenuItem(
-                            icon = Icons.Default.Notifications,
-                            title = "Notifications",
-                            onClick = onNavigateToNotifications
                         )
                         ProfileMenuItem(
                             icon = Icons.Default.Security,

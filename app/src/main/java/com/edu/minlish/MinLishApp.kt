@@ -34,7 +34,6 @@ import com.edu.minlish.features.learning.presentation.FlashcardScreen
 import com.edu.minlish.features.learning.presentation.WordDetailScreen
 import com.edu.minlish.features.learning.presentation.QuizGameScreen
 import com.edu.minlish.features.learning.presentation.GameHubScreen
-import com.edu.minlish.features.notification.presentation.NotificationListScreen
 import com.edu.minlish.features.speaking.presentation.SpeakingScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -231,9 +230,6 @@ fun MinLishApp() {
                     onEditProfile = {
                         navController.navigate(Screen.ProfileSetup.createRoute(isEdit = true))
                     },
-                    onNavigateToNotifications = {
-                        navController.navigate(Screen.Notifications.route)
-                    },
                     onSettingsClick = {
                         navController.navigate(Screen.Settings.route)
                     }
@@ -424,13 +420,6 @@ fun MinLishApp() {
                     wordId = wordId,
                     onBack = { navController.popBackStack() },
                     onAddSuccess = { navController.popBackStack() }
-                )
-            }
-
-            // User Notifications Route
-            composable(Screen.Notifications.route) {
-                NotificationListScreen(
-                    onBack = { navController.popBackStack() }
                 )
             }
 
