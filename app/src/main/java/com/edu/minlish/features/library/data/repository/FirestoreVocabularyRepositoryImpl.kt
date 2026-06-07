@@ -1,6 +1,5 @@
 package com.edu.minlish.features.library.data.repository
 
-import com.edu.minlish.features.library.data.DictionaryEntry
 import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
@@ -13,11 +12,9 @@ import java.util.Date
 
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.model.Category
-import com.edu.minlish.features.library.domain.repository.DictionaryStrategy
 
 class FirestoreVocabularyRepositoryImpl(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val dictionaryStrategy: DictionaryStrategy = FreeDictionaryStrategy()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) : VocabularyRepository {
 
     override suspend fun createSet(set: VocabularySet): Result<Unit> {
@@ -70,10 +67,6 @@ class FirestoreVocabularyRepositoryImpl(
             println("DEBUG: Error fetching sets: ${e.message}")
             Result.failure(e)
         }
-    }
-
-    override suspend fun fetchWordDetails(word: String): Result<List<DictionaryEntry>> {
-        return dictionaryStrategy.getWordDetails(word)
     }
 
     override suspend fun addWord(word: VocabularyWord): Result<Unit> {

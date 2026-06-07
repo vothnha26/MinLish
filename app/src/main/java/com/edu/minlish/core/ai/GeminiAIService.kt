@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
  * Service to interact with Gemini AI through Firebase AI SDK (Vertex AI in Firebase).
  * Authentication is handled internally by Firebase.
  */
-class GeminiAIService(
+open class GeminiAIService(
     private val modelName: String
 ) {
     
@@ -270,7 +270,7 @@ class GeminiAIService(
         }
     }
 
-    suspend fun lookupWordDetail(word: String): Result<String> = withContext(Dispatchers.IO) {
+    open suspend fun lookupWordDetail(word: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val prompt = """
                 Bạn là một từ điển Anh-Việt thông minh. Hãy tra cứu và phân tích chi tiết từ tiếng Anh: "$word".
@@ -355,6 +355,15 @@ class GeminiAIService(
     private fun mapGenerativeException(e: Exception): Exception {
         val msg = e.message ?: ""
         val errorString = e.toString()
+        val errorLower = errorString.lowercase()
+
+        if (errorLower.contains("resource_exhausted") || errorLower.contains("quota") || errorLower.contains("429")) {
+            return Exception(
+                "Lượt tra cứu AI đã đạt giới hạn (Resource Exhausted). Vui lòng đợi một lát rồi thử lại hoặc kiểm tra lại hạn mức trên Firebase Console.",
+                e
+            )
+        }
+
         return if (msg.contains("MissingFieldException") || 
             msg.contains("GRpcError") || 
             msg.contains("details") ||

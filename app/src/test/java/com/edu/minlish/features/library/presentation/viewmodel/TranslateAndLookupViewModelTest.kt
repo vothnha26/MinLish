@@ -1,6 +1,5 @@
 package com.edu.minlish.features.library.presentation.viewmodel
 
-import com.edu.minlish.features.library.data.DictionaryEntry
 import com.edu.minlish.features.library.domain.model.Category
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.model.VocabularyWord
@@ -233,7 +232,6 @@ class FakeVocabularyRepository : VocabularyRepository {
     override suspend fun updateCategory(category: Category): Result<Unit> = Result.success(Unit)
     override suspend fun deleteCategory(categoryId: String): Result<Unit> = Result.success(Unit)
 
-    override suspend fun fetchWordDetails(word: String): Result<List<DictionaryEntry>> = Result.success(emptyList())
 
     override suspend fun addWord(word: VocabularyWord): Result<Unit> {
         words.add(word)

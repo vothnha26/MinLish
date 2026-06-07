@@ -19,8 +19,9 @@ class MainActivity : ComponentActivity() {
         // Initialize Text-to-Speech Engine
         AudioPlayer.init(this)
         
-        // Initialize App Settings
+        // Initialize App Settings & Cache
         com.edu.minlish.core.util.AppSettings.init(this)
+        com.edu.minlish.core.util.VocabularyCache.init(this)
         
         // Pre-fetch user data if already logged in (Auto-login)
         val firebaseAuth = FirebaseAuth.getInstance()

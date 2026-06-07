@@ -1,8 +1,6 @@
 package com.edu.minlish.features.library.domain.repository
 
 import com.edu.minlish.features.library.domain.model.VocabularyWord
-import com.edu.minlish.features.library.data.DictionaryEntry
-
 import com.edu.minlish.features.library.domain.model.Category
 import com.edu.minlish.features.library.domain.model.VocabularySet
 
@@ -22,7 +20,6 @@ interface VocabularyRepository {
     suspend fun deleteCategory(categoryId: String): Result<Unit>
     
     // Vocabulary Words
-    suspend fun fetchWordDetails(word: String): Result<List<DictionaryEntry>>
     suspend fun addWord(word: VocabularyWord): Result<Unit>
     suspend fun importWords(set: VocabularySet, words: List<VocabularyWord>): Result<Unit>
     suspend fun updateWord(word: VocabularyWord): Result<Unit>

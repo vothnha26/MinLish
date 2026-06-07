@@ -21,11 +21,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.library.domain.model.VocabularyWord
+import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.presentation.viewmodel.TranslateAndLookupViewModel
 import com.edu.minlish.core.util.AudioPlayer
 
@@ -275,5 +278,39 @@ fun TranslationTabContent(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TranslationTabPreview() {
+    val sampleWord = VocabularyWord(
+        word = "Eloquent",
+        pronunciation = "/ˈel.ə.kwənt/",
+        definitions = listOf(
+            WordDefinition(
+                pos = "adj",
+                meaningVietnamese = "Hùng hồn, có khả năng diễn đạt tốt",
+                definitionEnglish = "fluent or persuasive in speaking or writing.",
+                exampleSentence = "She made an eloquent appeal for action."
+            )
+        )
+    )
+
+    MinLishTheme {
+        TranslationTabContent(
+            sourceLang = "English",
+            targetLang = "Vietnamese",
+            inputText = "She is an eloquent speaker.",
+            translatedText = "Cô ấy là một người nói chuyện lưu loát.",
+            extractedWords = listOf(sampleWord),
+            wordSavedStatus = mapOf("Eloquent" to false),
+            onSwapLanguages = {},
+            onUpdateInputText = {},
+            onTranslate = {},
+            onCopyClick = {},
+            onQuickAddClick = {},
+            onSaveToSetClick = {}
+        )
     }
 }

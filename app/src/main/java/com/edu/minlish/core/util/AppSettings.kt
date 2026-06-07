@@ -10,6 +10,10 @@ object AppSettings {
         prefs = context.applicationContext.getSharedPreferences("minlish_settings", Context.MODE_PRIVATE)
     }
 
+    fun setSharedPreferencesForTest(sharedPreferences: SharedPreferences?) {
+        prefs = sharedPreferences
+    }
+
     var intervalUnit: String
         get() = prefs?.getString("interval_unit", "DAYS") ?: "DAYS"
         set(value) {
@@ -57,4 +61,5 @@ object AppSettings {
         set(value) {
             prefs?.edit()?.putBoolean("is_notifications_enabled", value)?.apply()
         }
+
 }
