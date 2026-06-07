@@ -36,6 +36,7 @@ fun CreateWordSetScreen(
     val title by viewModel.title.collectAsStateWithLifecycle()
     val description by viewModel.description.collectAsStateWithLifecycle()
     val category by viewModel.category.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
 
     LaunchedEffect(setId) {
         if (setId != null) {
@@ -54,6 +55,7 @@ fun CreateWordSetScreen(
         title = title,
         description = description,
         category = category,
+        categories = categories,
         uiState = uiState,
         onTitleChange = { viewModel.updateTitle(it) },
         onDescriptionChange = { viewModel.updateDescription(it) },
@@ -72,13 +74,14 @@ fun CreateWordSetScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateWordSetContent(
     setId: String? = null,
     title: String,
     description: String,
     category: String,
+    categories: List<String>,
     uiState: CreateSetUiState,
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
@@ -158,8 +161,11 @@ fun CreateWordSetContent(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("IELTS", "TOEIC", "General").forEach { cat ->
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { cat ->
                         FilterChip(
                             selected = category == cat,
                             onClick = { onCategoryChange(cat) },
@@ -227,6 +233,7 @@ fun CreateWordSetScreenPreview() {
             title = "IELTS Academic",
             description = "Essential vocabulary for IELTS Academic preparation",
             category = "IELTS",
+            categories = listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"),
             uiState = CreateSetUiState.Idle,
             onTitleChange = {},
             onDescriptionChange = {},
@@ -247,6 +254,7 @@ fun EditWordSetScreenPreview() {
             title = "TOEIC Listening",
             description = "Focus on part 1 and 2",
             category = "TOEIC",
+            categories = listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"),
             uiState = CreateSetUiState.Idle,
             onTitleChange = {},
             onDescriptionChange = {},

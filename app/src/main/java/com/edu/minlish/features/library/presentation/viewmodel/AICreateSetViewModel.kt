@@ -13,6 +13,8 @@ import com.edu.minlish.features.library.domain.model.VocabularyWord
 import com.edu.minlish.features.library.domain.model.WordDefinition
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
 import com.edu.minlish.features.library.domain.repository.LookupStrategy
+import com.edu.minlish.features.library.domain.usecase.ManageCategoryUseCase
+import com.edu.minlish.features.library.data.repository.CategoryRepositoryImpl
 import com.google.gson.Gson
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -33,7 +35,8 @@ sealed class AICreateSetUiState {
 class AICreateSetViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
     private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
-    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = false)
+    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = false),
+    private val manageCategoryUseCase: ManageCategoryUseCase = ManageCategoryUseCase(CategoryRepositoryImpl())
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AICreateSetUiState>(AICreateSetUiState.Idle)
@@ -44,6 +47,30 @@ class AICreateSetViewModel(
 
     private val _category = MutableStateFlow("IELTS")
     val category: StateFlow<String> = _category.asStateFlow()
+
+    private val _categories = MutableStateFlow<List<String>>(listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"))
+    val categories: StateFlow<List<String>> = _categories.asStateFlow()
+
+    init {
+        loadCategories()
+    }
+
+    private fun loadCategories() {
+        val currentUser = authRepository.getCurrentUser() ?: return
+        viewModelScope.launch {
+            manageCategoryUseCase.getCategories(currentUser.id)
+                .onSuccess { list ->
+                    _categories.update {
+                        (list.map { it.name } + listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom")).distinct()
+                    }
+                }
+                .onFailure {
+                    _categories.update {
+                        listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom")
+                    }
+                }
+        }
+    }
 
     private val _wordCount = MutableStateFlow(5)
     val wordCount: StateFlow<Int> = _wordCount.asStateFlow()

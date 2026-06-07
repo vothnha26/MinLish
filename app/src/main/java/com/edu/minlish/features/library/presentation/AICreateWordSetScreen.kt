@@ -52,6 +52,7 @@ fun AICreateWordSetScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val prompt by viewModel.prompt.collectAsStateWithLifecycle()
     val category by viewModel.category.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
     val wordCount by viewModel.wordCount.collectAsStateWithLifecycle()
     val includeCollocations by viewModel.includeCollocations.collectAsStateWithLifecycle()
 
@@ -69,6 +70,7 @@ fun AICreateWordSetScreen(
         uiState = uiState,
         prompt = prompt,
         category = category,
+        categories = categories,
         wordCount = wordCount,
         includeCollocations = includeCollocations,
         onBack = onBack,
@@ -86,6 +88,7 @@ private fun AICreateWordSetContent(
     uiState: AICreateSetUiState,
     prompt: String,
     category: String,
+    categories: List<String>,
     wordCount: Int,
     includeCollocations: Boolean,
     onBack: () -> Unit,
@@ -207,7 +210,7 @@ private fun AICreateWordSetContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "General").forEach { cat ->
+                        categories.forEach { cat ->
                             val isSelected = category == cat
                             FilterChip(
                                 selected = isSelected,
@@ -383,6 +386,7 @@ fun AICreateWordSetScreenPreview() {
             uiState = AICreateSetUiState.Idle,
             prompt = "Environmental protection",
             category = "IELTS",
+            categories = listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"),
             wordCount = 10,
             includeCollocations = true,
             onBack = {},

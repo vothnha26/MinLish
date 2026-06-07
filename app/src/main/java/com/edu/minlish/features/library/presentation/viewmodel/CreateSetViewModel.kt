@@ -7,6 +7,8 @@ import com.edu.minlish.features.auth.domain.repository.AuthRepository
 import com.edu.minlish.features.library.data.repository.FirestoreVocabularyRepositoryImpl
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import com.edu.minlish.features.library.domain.repository.VocabularyRepository
+import com.edu.minlish.features.library.domain.usecase.ManageCategoryUseCase
+import com.edu.minlish.features.library.data.repository.CategoryRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +24,8 @@ sealed class CreateSetUiState {
 
 class CreateSetViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
-    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl()
+    private val authRepository: AuthRepository = FirebaseAuthRepositoryImpl(),
+    private val manageCategoryUseCase: ManageCategoryUseCase = ManageCategoryUseCase(CategoryRepositoryImpl())
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<CreateSetUiState>(CreateSetUiState.Idle)
@@ -37,10 +40,34 @@ class CreateSetViewModel(
     private val _category = MutableStateFlow("IELTS")
     val category: StateFlow<String> = _category.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<String>>(listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom"))
+    val categories: StateFlow<List<String>> = _categories.asStateFlow()
+
     private val _loadedSetId = MutableStateFlow<String?>(null)
     val loadedSetId: StateFlow<String?> = _loadedSetId.asStateFlow()
     
     private var isInitialized = false
+
+    init {
+        loadCategories()
+    }
+
+    private fun loadCategories() {
+        val currentUser = authRepository.getCurrentUser() ?: return
+        viewModelScope.launch {
+            manageCategoryUseCase.getCategories(currentUser.id)
+                .onSuccess { list ->
+                    _categories.update {
+                        (list.map { it.name } + listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom")).distinct()
+                    }
+                }
+                .onFailure {
+                    _categories.update {
+                        listOf("IELTS", "TOEIC", "Business", "Travel", "Daily", "Custom")
+                    }
+                }
+        }
+    }
 
     fun updateTitle(value: String) {
         _title.update { value }
