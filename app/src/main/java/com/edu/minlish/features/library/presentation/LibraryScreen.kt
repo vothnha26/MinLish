@@ -24,12 +24,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
+import com.edu.minlish.features.library.domain.model.Category
+import com.edu.minlish.features.library.domain.model.VocabularySet
+import com.edu.minlish.features.library.domain.usecase.LibrarySetItem
 import com.edu.minlish.features.library.presentation.components.*
+import com.edu.minlish.features.library.presentation.viewmodel.ExportUiState
+import com.edu.minlish.features.library.presentation.viewmodel.ImportUiState
 import com.edu.minlish.features.library.presentation.viewmodel.LibraryUiState
 import com.edu.minlish.features.library.presentation.viewmodel.LibraryViewModel
 import java.text.SimpleDateFormat
@@ -76,9 +83,6 @@ fun LibraryScreen(
     }
 
     val context = LocalContext.current
-    var showCategoryManager by remember { mutableStateOf(false) }
-    var showCreateOptionsSheet by remember { mutableStateOf(false) }
-
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.parseImportFile(context, it) } }
@@ -87,20 +91,83 @@ fun LibraryScreen(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri -> uri?.let { viewModel.startExport(context, it) } }
 
+    LibraryScreenContent(
+        uiState = uiState,
+        searchQuery = searchQuery,
+        selectedCategory = selectedCategory,
+        importUiState = importUiState,
+        exportUiState = exportUiState,
+        importSetTitle = importSetTitle,
+        importCategory = importCategory,
+        categoriesList = categoriesList,
+        displayCategories = viewModel.displayCategories,
+        progressMap = progressMap,
+        filteredSets = filteredSets,
+        onWordSetClick = onWordSetClick,
+        onCreateWordSetClick = onCreateWordSetClick,
+        onAICreateWordSetClick = onAICreateWordSetClick,
+        onExportClick = {
+            viewModel.prepareExportAll {
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                exportLauncher.launch("MinLish_Vocabulary_$timestamp.csv")
+            }
+        },
+        onImportClick = {
+            importLauncher.launch(
+                arrayOf("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            )
+        },
+        onQueryChange = { viewModel.updateSearchQuery(it) },
+        onCategorySelect = { viewModel.updateSelectedCategory(it) },
+        onAddCategory = { viewModel.addCategory(it) },
+        onEditCategory = { cat, name -> viewModel.updateCategory(cat, name) },
+        onDeleteCategory = { viewModel.deleteCategory(it) },
+        onImportTitleChange = { viewModel.updateImportSetTitle(it) },
+        onImportCategoryChange = { viewModel.updateImportCategory(it) },
+        onConfirmImport = { viewModel.confirmImport(importSetTitle, importCategory) },
+        onDismissImport = { viewModel.clearImportState() },
+        onDismissExport = { viewModel.clearExportState() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LibraryScreenContent(
+    uiState: LibraryUiState,
+    searchQuery: String,
+    selectedCategory: String,
+    importUiState: ImportUiState,
+    exportUiState: ExportUiState,
+    importSetTitle: String,
+    importCategory: String,
+    categoriesList: List<Category>,
+    displayCategories: List<String>,
+    progressMap: Map<String, Float>,
+    filteredSets: List<VocabularySet>,
+    onWordSetClick: (String) -> Unit,
+    onCreateWordSetClick: () -> Unit,
+    onAICreateWordSetClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onCategorySelect: (String) -> Unit,
+    onAddCategory: (String) -> Unit,
+    onEditCategory: (Category, String) -> Unit,
+    onDeleteCategory: (String) -> Unit,
+    onImportTitleChange: (String) -> Unit,
+    onImportCategoryChange: (String) -> Unit,
+    onConfirmImport: () -> Unit,
+    onDismissImport: () -> Unit,
+    onDismissExport: () -> Unit
+) {
+    var showCategoryManager by remember { mutableStateOf(false) }
+    var showCreateOptionsSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             LibraryTopBar(
-                onExportClick = {
-                    viewModel.prepareExportAll {
-                        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                        exportLauncher.launch("MinLish_Vocabulary_$timestamp.csv")
-                    }
-                },
-                onImportClick = {
-                    importLauncher.launch(
-                        arrayOf("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                    )
-                }
+                onExportClick = onExportClick,
+                onImportClick = onImportClick
             )
         },
         floatingActionButton = {
@@ -118,12 +185,12 @@ fun LibraryScreen(
                 .padding(padding)
                 .background(Color(0xFFF0F5FB))
         ) {
-            SearchBar(query = searchQuery, onQueryChange = { viewModel.updateSearchQuery(it) })
+            SearchBar(query = searchQuery, onQueryChange = onQueryChange)
 
             CategoryFilterRow(
-                categories = viewModel.displayCategories,
+                categories = displayCategories,
                 selectedCategory = selectedCategory,
-                onCategorySelect = { viewModel.updateSelectedCategory(it) },
+                onCategorySelect = onCategorySelect,
                 onManageClick = { showCategoryManager = true }
             )
 
@@ -174,9 +241,9 @@ fun LibraryScreen(
     if (showCategoryManager) {
         CategoryManagerDialog(
             categories = categoriesList,
-            onAdd = { viewModel.addCategory(it) },
-            onEdit = { cat, name -> viewModel.updateCategory(cat, name) },
-            onDelete = { viewModel.deleteCategory(it) },
+            onAdd = onAddCategory,
+            onEdit = onEditCategory,
+            onDelete = onDeleteCategory,
             onDismiss = { showCategoryManager = false }
         )
     }
@@ -185,15 +252,15 @@ fun LibraryScreen(
         importState = importUiState,
         title = importSetTitle,
         category = importCategory,
-        onTitleChange = { viewModel.updateImportSetTitle(it) },
-        onCategoryChange = { viewModel.updateImportCategory(it) },
-        onConfirm = { viewModel.confirmImport(importSetTitle, importCategory) },
-        onDismiss = { viewModel.clearImportState() }
+        onTitleChange = onImportTitleChange,
+        onCategoryChange = onImportCategoryChange,
+        onConfirm = onConfirmImport,
+        onDismiss = onDismissImport
     )
 
     ExportVocabularyDialog(
         exportState = exportUiState,
-        onDismiss = { viewModel.clearExportState() }
+        onDismiss = onDismissExport
     )
 }
 
@@ -339,5 +406,52 @@ private fun OptionCard(
                 Text(desc, fontSize = 12.sp, color = Color.Gray)
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LibraryScreenPreview() {
+    val sampleSets = listOf(
+        VocabularySet(id = "1", title = "IELTS Academic", wordCount = 50, category = "IELTS"),
+        VocabularySet(id = "2", title = "TOEIC 900+", wordCount = 100, category = "TOEIC"),
+        VocabularySet(id = "3", title = "Daily Communication", wordCount = 30, category = "General")
+    )
+
+    val categories = listOf(
+        Category(id = "1", name = "IELTS"),
+        Category(id = "2", name = "TOEIC"),
+        Category(id = "3", name = "General")
+    )
+
+    MinLishTheme {
+        LibraryScreenContent(
+            uiState = LibraryUiState.Success(sampleSets.map { LibrarySetItem(it, 0.5f) }),
+            searchQuery = "",
+            selectedCategory = "All",
+            importUiState = ImportUiState.Idle,
+            exportUiState = ExportUiState.Idle,
+            importSetTitle = "",
+            importCategory = "",
+            categoriesList = categories,
+            displayCategories = listOf("All", "IELTS", "TOEIC", "General"),
+            progressMap = mapOf("1" to 0.5f, "2" to 0.2f, "3" to 0.8f),
+            filteredSets = sampleSets,
+            onWordSetClick = {},
+            onCreateWordSetClick = {},
+            onAICreateWordSetClick = {},
+            onExportClick = {},
+            onImportClick = {},
+            onQueryChange = {},
+            onCategorySelect = {},
+            onAddCategory = {},
+            onEditCategory = { _, _ -> },
+            onDeleteCategory = {},
+            onImportTitleChange = {},
+            onImportCategoryChange = {},
+            onConfirmImport = {},
+            onDismissImport = {},
+            onDismissExport = {}
+        )
     }
 }

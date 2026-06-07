@@ -26,8 +26,11 @@ import coil.compose.AsyncImage
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
 import com.edu.minlish.core.designsystem.theme.Primary
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AddWordViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AddWordUiState
 import com.edu.minlish.features.library.domain.model.WordDefinition
@@ -37,7 +40,7 @@ import com.edu.minlish.features.library.domain.model.WordDefinition
 @Composable
 fun AddWordScreen(
     setId: String,          // ID của bộ từ vựng (Word Set) mà từ này thuộc về
-    wordId: String? = null, // ID của từ vựng nếu đang ở chế độ chỉnh sửa (null nếu thêm mới)
+    wordId: String? = null, // Nếu có wordId -> Chế độ Edit. Nếu null -> Chế độ Thêm mới
     onBack: () -> Unit,
     onAddSuccess: () -> Unit,
     viewModel: AddWordViewModel = viewModel()
@@ -60,13 +63,71 @@ fun AddWordScreen(
         }
     }
 
-    // Lắng nghe trạng thái UI, nếu lưu từ thành công (Success) thì kích hoạt callback để quay về màn hình trước
+    // Tự động chuyển màn hình về trước khi Lưu thành công
     LaunchedEffect(uiState) {
         if (uiState is AddWordUiState.Success) {
             onAddSuccess()
         }
     }
 
+    AddWordContent(
+        wordId = wordId,
+        onBack = onBack,
+        uiState = uiState,
+        wordText = wordText,
+        pronunciationText = pronunciationText,
+        audioUrl = audioUrl,
+        imageUrl = imageUrl,
+        collocationText = collocationText,
+        personalNoteText = personalNoteText,
+        definitions = definitions,
+        showSelectionDialog = showSelectionDialog,
+        selectionItems = selectionItems,
+        onWordTextChange = viewModel::updateWordText,
+        onPronunciationTextChange = viewModel::updatePronunciationText,
+        onCollocationTextChange = viewModel::updateCollocationText,
+        onPersonalNoteTextChange = viewModel::updatePersonalNoteText,
+        onSmartSearch = viewModel::smartSearch,
+        onPlayAudio = viewModel::playAudio,
+        onAddDefinitionField = viewModel::addDefinitionField,
+        onUpdateDefinition = viewModel::updateDefinition,
+        onRemoveDefinitionField = viewModel::removeDefinitionField,
+        onSaveWord = { viewModel.saveWord(setId) },
+        onResetError = viewModel::resetError,
+        onUpdateShowSelectionDialog = viewModel::updateShowSelectionDialog,
+        onImportSelectedDefinitions = viewModel::importSelectedDefinitions
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddWordContent(
+    wordId: String?,
+    onBack: () -> Unit,
+    uiState: AddWordUiState,
+    wordText: String,
+    pronunciationText: String,
+    audioUrl: String,
+    imageUrl: String,
+    collocationText: String,
+    personalNoteText: String,
+    definitions: List<WordDefinition>,
+    showSelectionDialog: Boolean,
+    selectionItems: List<com.edu.minlish.features.library.presentation.viewmodel.SelectionItem>,
+    onWordTextChange: (String) -> Unit,
+    onPronunciationTextChange: (String) -> Unit,
+    onCollocationTextChange: (String) -> Unit,
+    onPersonalNoteTextChange: (String) -> Unit,
+    onSmartSearch: () -> Unit,
+    onPlayAudio: () -> Unit,
+    onAddDefinitionField: () -> Unit,
+    onUpdateDefinition: (Int, WordDefinition) -> Unit,
+    onRemoveDefinitionField: (Int) -> Unit,
+    onSaveWord: () -> Unit,
+    onResetError: () -> Unit,
+    onUpdateShowSelectionDialog: (Boolean) -> Unit,
+    onImportSelectedDefinitions: (List<com.edu.minlish.features.library.presentation.viewmodel.SelectionItem>) -> Unit
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -119,12 +180,12 @@ fun AddWordScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // [UI] Ô nhập từ vựng gốc (Word)
                         Box(modifier = Modifier.weight(1f)) {
-                            MinLishTextField(value = wordText, onValueChange = { viewModel.updateWordText(it) }, label = "Word", placeholder = "e.g. Resilience")
+                            MinLishTextField(value = wordText, onValueChange = onWordTextChange, label = "Word", placeholder = "e.g. Resilience")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         // [UI] Nút tìm kiếm (kính lúp) - dùng tra cứu nhanh qua Dictionary API bên ngoài
                         IconButton(
-                            onClick = { viewModel.smartSearch() },
+                            onClick = onSmartSearch,
                             modifier = Modifier
                                 .padding(top = 8.dp)
                                 .background(Primary.copy(alpha = 0.1f), CircleShape)
@@ -136,11 +197,11 @@ fun AddWordScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // [UI] Ô nhập phiên âm của từ (Pronunciation)
                         Box(modifier = Modifier.weight(1f)) {
-                            MinLishTextField(value = pronunciationText, onValueChange = { viewModel.updatePronunciationText(it) }, label = "Pronunciation", placeholder = "/rɪˈzɪl.jəns/")
+                            MinLishTextField(value = pronunciationText, onValueChange = onPronunciationTextChange, label = "Pronunciation", placeholder = "/rɪˈzɪl.jəns/")
                         }
                         // [UI] Nút loa phát âm thanh (Play Audio) - chỉ xuất hiện khi đã tìm được link file âm thanh phát âm từ API
                         if (audioUrl.isNotBlank()) {
-                            IconButton(onClick = { viewModel.playAudio() }) {
+                            IconButton(onClick = onPlayAudio) {
                                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Play Audio", tint = Primary)
                             }
                         }
@@ -152,7 +213,7 @@ fun AddWordScreen(
             // Add Manual
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "MEANINGS & DEFINITIONS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.sp)
-                TextButton(onClick = { viewModel.addDefinitionField() }) {
+                TextButton(onClick = onAddDefinitionField) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Add Manual")
@@ -163,8 +224,8 @@ fun AddWordScreen(
             definitions.forEachIndexed { index, definition ->
                 DefinitionCard(
                     definition = definition,
-                    onUpdate = { updated -> viewModel.updateDefinition(index, updated) },
-                    onDelete = { viewModel.removeDefinitionField(index) },
+                    onUpdate = { updated -> onUpdateDefinition(index, updated) },
+                    onDelete = { onRemoveDefinitionField(index) },
                     showDelete = definitions.size > 1
                 )
             }
@@ -179,9 +240,9 @@ fun AddWordScreen(
                     .padding(16.dp)
                     .fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // [UI] Ô nhập cụm từ hay đi kèm (Collocations)
-                    MinLishTextField(value = collocationText, onValueChange = { viewModel.updateCollocationText(it) }, label = "Collocations", placeholder = "e.g. show resilience, built-in resilience")
+                    MinLishTextField(value = collocationText, onValueChange = onCollocationTextChange, label = "Collocations", placeholder = "e.g. show resilience, built-in resilience")
                     // [UI] Ô nhập ghi chú cá nhân của người học (Personal Note)
-                    MinLishTextField(value = personalNoteText, onValueChange = { viewModel.updatePersonalNoteText(it) }, label = "Personal Note", placeholder = "Used in psychology and engineering.")
+                    MinLishTextField(value = personalNoteText, onValueChange = onPersonalNoteTextChange, label = "Personal Note", placeholder = "Used in psychology and engineering.")
                 }
             }
 
@@ -190,16 +251,16 @@ fun AddWordScreen(
             // [UI] Nút chính để Lưu từ vựng (Save Word / Save Changes) - Vô hiệu hóa khi ô Word trống hoặc đang load dữ liệu
             MinLishButton(
                 text = if (wordId != null) "Save Changes" else "Save Word",
-                onClick = { viewModel.saveWord(setId) },
+                onClick = onSaveWord,
                 enabled = wordText.isNotBlank() && uiState !is AddWordUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
             
             // [UI] Text hiển thị thông báo lỗi màu đỏ nếu quá trình Lưu/Gọi API xảy ra sự cố
             if (uiState is AddWordUiState.Error) {
-                Text(text = (uiState as AddWordUiState.Error).message, color = Color.Red, fontSize = 14.sp, modifier = Modifier
+                Text(text = uiState.message, color = Color.Red, fontSize = 14.sp, modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.resetError() })
+                    .clickable { onResetError() })
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -209,9 +270,9 @@ fun AddWordScreen(
     if (showSelectionDialog) {
         DefinitionSelectionDialog(
             selectionItems = selectionItems,
-            onDismiss = { viewModel.updateShowSelectionDialog(false) },
+            onDismiss = { onUpdateShowSelectionDialog(false) },
             onConfirm = { selected ->
-                viewModel.importSelectedDefinitions(selected)
+                onImportSelectedDefinitions(selected)
             }
         )
     }
@@ -300,50 +361,75 @@ fun WordChipSection(
                 InputChip(
                     selected = false,
                     onClick = { /* Could navigate here */ },
-                    label = { Text(word) },
+                    label = { Text(word, color = Color(0xFF333333)) },
                     trailingIcon = {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Remove",
                             modifier = Modifier
                                 .size(16.dp)
-                                .clickable { onRemove(word) }
+                                .clickable { onRemove(word) },
+                            tint = Color.Gray
                         )
                     }
                 )
             }
             
-            // Inline add field
-            Box(modifier = Modifier
-                .width(120.dp)
-                .height(32.dp)) {
-                TextField(
-                    value = textFieldValue,
-                    onValueChange = { textFieldValue = it },
-                    placeholder = { Text("Add...", fontSize = 12.sp) },
-                    modifier = Modifier.fillMaxSize(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Primary,
-                        unfocusedIndicatorColor = Color.LightGray
-                    ),
-                    singleLine = true,
-                    trailingIcon = {
-                        if (textFieldValue.isNotBlank()) {
-                            IconButton(onClick = { 
-                                onAdd(textFieldValue.trim())
-                                textFieldValue = ""
-                            }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
-                            }
+            // Inline add field using Custom InputChip to match and align perfectly with sibling chips
+            InputChip(
+                selected = false,
+                onClick = { /* Do nothing on click */ },
+                label = {
+                    Box(
+                        modifier = Modifier.width(80.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (textFieldValue.isEmpty()) {
+                            Text(
+                                text = "Add...",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
                         }
+                        BasicTextField(
+                            value = textFieldValue,
+                            onValueChange = { textFieldValue = it },
+                            textStyle = LocalTextStyle.current.copy(color = Color.Black, fontSize = 12.sp),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    if (textFieldValue.isNotBlank()) {
+                                        onAdd(textFieldValue.trim())
+                                        textFieldValue = ""
+                                    }
+                                }
+                            )
+                        )
                     }
-                )
-            }
-        }
-    }
-}
+                },
+                trailingIcon = {
+                    if (textFieldValue.isNotBlank()) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable {
+                                    onAdd(textFieldValue.trim())
+                                    textFieldValue = ""
+                                },
+                            tint = Primary
+                        )
+                    }
+                }
+            )
+          }
+      }
+  }
 
 // Hộp thoại (Dialog) cho phép người dùng lựa chọn các nghĩa phù hợp được tìm thấy từ API/AI để import vào từ vựng hiện tại
 @Composable
@@ -421,7 +507,7 @@ fun DefinitionSelectionDialog(
                                     Checkbox(
                                         checked = isChecked,
                                         onCheckedChange = { checked ->
-                                            if (checked == true) {
+                                            if (checked) {
                                                 selectedItems.add(item)
                                             } else {
                                                 selectedItems.remove(item)
@@ -478,4 +564,47 @@ fun DefinitionSelectionDialog(
         shape = RoundedCornerShape(16.dp),
         containerColor = Color.White
     )
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Composable
+fun AddWordScreenPreview() {
+    com.edu.minlish.core.designsystem.theme.MinLishTheme {
+        AddWordContent(
+            wordId = null,
+            onBack = {},
+            uiState = AddWordUiState.Idle,
+            wordText = "Resilience",
+            pronunciationText = "/rɪˈzɪl.jəns/",
+            audioUrl = "",
+            imageUrl = "",
+            collocationText = "show resilience, built-in resilience",
+            personalNoteText = "Used in psychology and engineering.",
+            definitions = listOf(
+                WordDefinition(
+                    pos = "Noun",
+                    meaningVietnamese = "Sự kiên cường",
+                    definitionEnglish = "The capacity to recover quickly from difficulties; toughness.",
+                    exampleSentence = "The team showed great resilience after their defeat.",
+                    synonyms = listOf("flexibility", "toughness"),
+                    antonyms = listOf("fragility")
+                )
+            ),
+            showSelectionDialog = false,
+            selectionItems = emptyList(),
+            onWordTextChange = {},
+            onPronunciationTextChange = {},
+            onCollocationTextChange = {},
+            onPersonalNoteTextChange = {},
+            onSmartSearch = {},
+            onPlayAudio = {},
+            onAddDefinitionField = {},
+            onUpdateDefinition = { _, _ -> },
+            onRemoveDefinitionField = {},
+            onSaveWord = {},
+            onResetError = {},
+            onUpdateShowSelectionDialog = {},
+            onImportSelectedDefinitions = {}
+        )
+    }
 }

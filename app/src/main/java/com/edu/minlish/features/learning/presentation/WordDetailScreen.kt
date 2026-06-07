@@ -26,6 +26,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edu.minlish.core.util.AudioPlayer
+import coil.compose.AsyncImage
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
+import com.edu.minlish.features.library.domain.model.VocabularyWord
+import com.edu.minlish.features.library.domain.model.WordDefinition
 
 @Composable
 fun WordDetailScreen(
@@ -35,16 +42,53 @@ fun WordDetailScreen(
     viewModel: WordDetailViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val state = uiState
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(wordId) {
         viewModel.loadWord(wordId)
     }
 
+    WordDetailContent(
+        state = uiState,
+        onBack = onBack,
+        onEditClick = onEditClick,
+        onDeleteClick = { showDeleteDialog = true }
+    )
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Word") },
+            text = { Text("Are you sure you want to delete this word?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteWord(wordId) {
+                        showDeleteDialog = false
+                        onBack()
+                    }
+                }) {
+                    Text("Delete", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WordDetailContent(
+    state: WordDetailUiState,
+    onBack: () -> Unit,
+    onEditClick: (String, String) -> Unit,
+    onDeleteClick: () -> Unit
+) {
     Scaffold(
         topBar = {
-            @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
                 title = {},
                 navigationIcon = {
@@ -59,7 +103,7 @@ fun WordDetailScreen(
                     }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.Gray)
                     }
-                    IconButton(onClick = { showDeleteDialog = true }) {
+                    IconButton(onClick = onDeleteClick) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
                     }
                 }
@@ -100,6 +144,19 @@ fun WordDetailScreen(
                             )
                         }
                     }
+                    
+                    if (word.imageUrl.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        AsyncImage(
+                            model = word.imageUrl,
+                            contentDescription = "Word Image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -135,6 +192,40 @@ fun WordDetailScreen(
                                     Text(text = def.exampleSentence, fontSize = 15.sp, color = Color(0xFF333333))
                                 }
                             }
+
+                            if (def.synonyms.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Đồng nghĩa: ",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                    Text(
+                                        text = def.synonyms.joinToString(", "),
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF333333)
+                                    )
+                                }
+                            }
+
+                            if (def.antonyms.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Trái nghĩa: ",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFC62828)
+                                    )
+                                    Text(
+                                        text = def.antonyms.joinToString(", "),
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF333333)
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -151,29 +242,6 @@ fun WordDetailScreen(
             }
         }
     }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Word") },
-            text = { Text("Are you sure you want to delete this word?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteWord(wordId) {
-                        showDeleteDialog = false
-                        onBack()
-                    }
-                }) {
-                    Text("Delete", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 @Composable
@@ -188,5 +256,36 @@ fun SectionHeader(title: String) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WordDetailScreenPreview() {
+    val sampleWord = VocabularyWord(
+        id = "w1",
+        word = "Eloquent",
+        pronunciation = "/ˈel.ə.kwənt/",
+        definitions = listOf(
+            WordDefinition(
+                pos = "adjective",
+                meaningVietnamese = "Hùng hồn, có khả năng diễn đạt tốt",
+                definitionEnglish = "fluent or persuasive in speaking or writing.",
+                exampleSentence = "She made an eloquent appeal for action.",
+                synonyms = listOf("fluent", "articulate", "silver-tongued"),
+                antonyms = listOf("inarticulate")
+            )
+        ),
+        collocations = "eloquent speech, eloquent speaker",
+        personalNote = "Learn this for IELTS speaking."
+    )
+
+    MinLishTheme {
+        WordDetailContent(
+            state = WordDetailUiState.Success(sampleWord),
+            onBack = {},
+            onEditClick = { _, _ -> },
+            onDeleteClick = {}
+        )
     }
 }

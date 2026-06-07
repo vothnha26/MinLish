@@ -46,7 +46,7 @@ data class ExtractedWordItem(
 class TranslateAndLookupViewModel(
     private val repository: VocabularyRepository = FirestoreVocabularyRepositoryImpl(),
     private val translationStrategy: TranslationStrategy = GoogleTranslationStrategy(),
-    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = false),
+    private val lookupStrategy: LookupStrategy = LookupStrategyFactory.create(useAi = true),
     private val getUserId: () -> String? = { FirebaseAuth.getInstance().currentUser?.uid }
 ) : ViewModel() {
 
@@ -178,12 +178,42 @@ class TranslateAndLookupViewModel(
             _translatedText.update { "" }
             _wordSavedStatus.update { emptyMap() }
 
-            // Dịch thuật thuần túy sử dụng API Google Translate sẵn có (Nhanh, miễn phí, không tốn AI)
-            translationStrategy.translate(text, _sourceLangCode.value, _targetLangCode.value).onSuccess { translation ->
-                _translatedText.update { translation }
-                _uiState.update { TranslateAndLookupUiState.Success }
+            // Sử dụng Gemini AI để dịch thuật chất lượng cao và tự động trích xuất từ vựng nổi bật giống smartSearch
+            AIModule.geminiService.translateAndExtractVocabulary(
+                text = text,
+                sourceLang = _sourceLang.value,
+                targetLang = _targetLang.value
+            ).onSuccess { jsonStr ->
+                try {
+                    val cleanJson = if (jsonStr.contains("```json")) {
+                        jsonStr.substringAfter("```json").substringBeforeLast("```").trim()
+                    } else if (jsonStr.contains("```")) {
+                        jsonStr.substringAfter("```").substringBeforeLast("```").trim()
+                    } else {
+                        jsonStr.trim()
+                    }
+                    
+                    val result = Gson().fromJson(cleanJson, TranslationAndExtractionResult::class.java)
+                    _translatedText.update { result.translatedText }
+                    
+                    val words = result.extractedWords.map { item ->
+                        VocabularyWord(
+                            word = item.word,
+                            pronunciation = item.pronunciation,
+                            definitions = item.definitions,
+                            collocations = item.collocations,
+                            personalNote = item.personalNote
+                        )
+                    }
+                    _extractedWords.update { words }
+                    checkIfWordsSaved(words)
+                    
+                    _uiState.update { TranslateAndLookupUiState.Success }
+                } catch (e: Exception) {
+                    _uiState.update { TranslateAndLookupUiState.Error("Lỗi xử lý dữ liệu từ AI: ${e.message}") }
+                }
             }.onFailure { e ->
-                _uiState.update { TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật thất bại. Vui lòng kiểm tra lại kết nối.") }
+                _uiState.update { TranslateAndLookupUiState.Error(e.message ?: "Dịch thuật và trích xuất thất bại. Vui lòng kiểm tra lại kết nối.") }
             }
         }
     }

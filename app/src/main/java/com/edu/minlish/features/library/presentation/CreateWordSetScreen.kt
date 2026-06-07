@@ -16,13 +16,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.tooling.preview.Preview
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.library.presentation.viewmodel.CreateSetViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.CreateSetUiState
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateWordSetScreen(
     setId: String? = null,
@@ -32,11 +33,9 @@ fun CreateWordSetScreen(
     viewModel: CreateSetViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val state = uiState
     val title by viewModel.title.collectAsStateWithLifecycle()
     val description by viewModel.description.collectAsStateWithLifecycle()
     val category by viewModel.category.collectAsStateWithLifecycle()
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(setId) {
         if (setId != null) {
@@ -45,10 +44,50 @@ fun CreateWordSetScreen(
     }
 
     LaunchedEffect(uiState) {
-        if (state is CreateSetUiState.Success) {
+        if (uiState is CreateSetUiState.Success) {
             onCreateSuccess()
         }
     }
+
+    CreateWordSetContent(
+        setId = setId,
+        title = title,
+        description = description,
+        category = category,
+        uiState = uiState,
+        onTitleChange = { viewModel.updateTitle(it) },
+        onDescriptionChange = { viewModel.updateDescription(it) },
+        onCategoryChange = { viewModel.updateCategory(it) },
+        onSaveClick = { viewModel.saveSet() },
+        onDeleteClick = {
+            viewModel.deleteSet(onSuccess = {
+                if (onDeleteSuccess != null) {
+                    onDeleteSuccess()
+                } else {
+                    onBack()
+                }
+            })
+        },
+        onBack = onBack
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateWordSetContent(
+    setId: String? = null,
+    title: String,
+    description: String,
+    category: String,
+    uiState: CreateSetUiState,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onCategoryChange: (String) -> Unit,
+    onSaveClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onBack: () -> Unit,
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -99,14 +138,14 @@ fun CreateWordSetScreen(
         ) {
             MinLishTextField(
                 value = title,
-                onValueChange = { viewModel.updateTitle(it) },
+                onValueChange = onTitleChange,
                 label = "Set Title",
                 placeholder = "e.g. Academic Vocabulary"
             )
 
             MinLishTextField(
                 value = description,
-                onValueChange = { viewModel.updateDescription(it) },
+                onValueChange = onDescriptionChange,
                 label = "Description",
                 placeholder = "e.g. Important words for IELTS Writing Task 2"
             )
@@ -123,7 +162,7 @@ fun CreateWordSetScreen(
                     listOf("IELTS", "TOEIC", "General").forEach { cat ->
                         FilterChip(
                             selected = category == cat,
-                            onClick = { viewModel.updateCategory(cat) },
+                            onClick = { onCategoryChange(cat) },
                             label = { Text(cat) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Primary,
@@ -134,20 +173,20 @@ fun CreateWordSetScreen(
                 }
             }
 
-            if (state is CreateSetUiState.Error) {
-                Text(text = state.message, color = Color.Red, fontSize = 12.sp)
+            if (uiState is CreateSetUiState.Error) {
+                Text(text = uiState.message, color = Color.Red, fontSize = 12.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             MinLishButton(
-                text = if (state is CreateSetUiState.Loading) {
+                text = if (uiState is CreateSetUiState.Loading) {
                     if (setId != null) "Saving..." else "Creating..."
                 } else {
                     if (setId != null) "Save Changes" else "Create Set"
                 },
-                onClick = { viewModel.saveSet() },
-                enabled = title.isNotBlank() && state !is CreateSetUiState.Loading,
+                onClick = onSaveClick,
+                enabled = title.isNotBlank() && uiState !is CreateSetUiState.Loading,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -162,13 +201,7 @@ fun CreateWordSetScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        viewModel.deleteSet(onSuccess = {
-                            if (onDeleteSuccess != null) {
-                                onDeleteSuccess()
-                            } else {
-                                onBack()
-                            }
-                        })
+                        onDeleteClick()
                     }
                 ) {
                     Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
@@ -181,6 +214,46 @@ fun CreateWordSetScreen(
             },
             shape = RoundedCornerShape(16.dp),
             containerColor = Color.White
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CreateWordSetScreenPreview() {
+    MinLishTheme {
+        CreateWordSetContent(
+            setId = null,
+            title = "IELTS Academic",
+            description = "Essential vocabulary for IELTS Academic preparation",
+            category = "IELTS",
+            uiState = CreateSetUiState.Idle,
+            onTitleChange = {},
+            onDescriptionChange = {},
+            onCategoryChange = {},
+            onSaveClick = {},
+            onDeleteClick = {},
+            onBack = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun EditWordSetScreenPreview() {
+    MinLishTheme {
+        CreateWordSetContent(
+            setId = "set_1",
+            title = "TOEIC Listening",
+            description = "Focus on part 1 and 2",
+            category = "TOEIC",
+            uiState = CreateSetUiState.Idle,
+            onTitleChange = {},
+            onDescriptionChange = {},
+            onCategoryChange = {},
+            onSaveClick = {},
+            onDeleteClick = {},
+            onBack = {}
         )
     }
 }

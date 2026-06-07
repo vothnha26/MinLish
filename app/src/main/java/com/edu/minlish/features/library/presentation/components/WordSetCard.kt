@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.library.domain.model.VocabularySet
 import java.text.SimpleDateFormat
@@ -88,6 +90,24 @@ private fun getRelativeTimeString(date: Date): String {
         else -> {
             val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             sdf.format(date)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WordSetCardPreview() {
+    MinLishTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            WordSetCard(
+                wordSet = VocabularySet(
+                    title = "IELTS Vocabulary",
+                    wordCount = 50,
+                    createdAt = Date()
+                ),
+                progress = 0.65f,
+                onClick = {}
+            )
         }
     }
 }

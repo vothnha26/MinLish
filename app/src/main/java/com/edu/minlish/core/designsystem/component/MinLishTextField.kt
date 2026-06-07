@@ -61,7 +61,7 @@ fun MinLishTextField(
                     if (value.isEmpty()) {
                         Text(
                             text = placeholder,
-                            style = MaterialTheme.typography.bodyLarge.copy(color = Placeholder)
+                            style = MaterialTheme.typography.bodyLarge.copy(color = Color.Gray)
                         )
                     }
                     BasicTextField(
@@ -70,7 +70,7 @@ fun MinLishTextField(
                         modifier = Modifier
                             .fillMaxWidth()
                             .onFocusChanged { isFocused = it.isFocused },
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = OnSurface),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.Black),
                         visualTransformation = visualTransformation,
                         keyboardOptions = keyboardOptions,
                         singleLine = true

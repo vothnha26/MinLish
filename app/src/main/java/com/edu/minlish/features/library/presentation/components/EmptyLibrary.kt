@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 
 @Composable
@@ -29,5 +31,13 @@ fun EmptyLibrary(onCreateClick: () -> Unit) {
         Button(onClick = onCreateClick, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
             Text("Create your first set")
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun EmptyLibraryPreview() {
+    MinLishTheme {
+        EmptyLibrary(onCreateClick = {})
     }
 }

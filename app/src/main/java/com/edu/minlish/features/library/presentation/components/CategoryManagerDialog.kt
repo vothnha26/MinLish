@@ -14,9 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edu.minlish.core.designsystem.component.MinLishTextField
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.library.domain.model.Category
 
@@ -145,4 +147,23 @@ fun CategoryManagerDialog(
         shape = RoundedCornerShape(16.dp),
         containerColor = Color.White
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CategoryManagerDialogPreview() {
+    val sampleCategories = listOf(
+        Category(id = "1", name = "IELTS"),
+        Category(id = "2", name = "TOEIC"),
+        Category(id = "3", name = "General")
+    )
+    MinLishTheme {
+        CategoryManagerDialog(
+            categories = sampleCategories,
+            onAdd = {},
+            onEdit = { _, _ -> },
+            onDelete = {},
+            onDismiss = {}
+        )
+    }
 }

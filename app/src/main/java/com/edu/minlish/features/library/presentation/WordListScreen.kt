@@ -36,6 +36,10 @@ import com.edu.minlish.features.library.presentation.viewmodel.ExportUiState
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
+import com.edu.minlish.features.library.domain.model.WordDefinition
+import com.edu.minlish.features.library.domain.model.VocabularySet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +82,48 @@ fun WordListScreen(
         }
     }
 
+    WordListContent(
+        uiState = uiState,
+        exportUiState = exportUiState,
+        masteryPercentage = masteryPercentage,
+        wordProgresses = wordProgresses,
+        searchQuery = searchQuery,
+        filteredWords = filteredWords,
+        vocabularySet = vocabularySet,
+        onBack = onBack,
+        onWordClick = onWordClick,
+        onAddWord = onAddWord,
+        onStudyClick = { onStudyClick(setId) },
+        onEditSetClick = { onEditSetClick(setId) },
+        onExportClick = {
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+            val fileName = "MinLish_${vocabularySet?.title?.replace(" ", "_") ?: "Set"}_$timestamp.csv"
+            exportLauncher.launch(fileName)
+        },
+        onSearchQueryChange = { viewModel.updateSearchQuery(it) },
+        onDismissExportDialog = { viewModel.clearExportState() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WordListContent(
+    uiState: WordListUiState,
+    exportUiState: ExportUiState,
+    masteryPercentage: Float,
+    wordProgresses: Map<String, com.edu.minlish.features.learning.domain.model.UserWordProgress>,
+    searchQuery: String,
+    filteredWords: List<VocabularyWord>,
+    vocabularySet: VocabularySet?,
+    onBack: () -> Unit,
+    onWordClick: (String) -> Unit,
+    onAddWord: () -> Unit,
+    onStudyClick: () -> Unit,
+    onEditSetClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onDismissExportDialog: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,16 +134,10 @@ fun WordListScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                            val fileName = "MinLish_${vocabularySet?.title?.replace(" ", "_") ?: "Set"}_$timestamp.csv"
-                            exportLauncher.launch(fileName)
-                        }
-                    ) {
+                    IconButton(onClick = onExportClick) {
                         Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Export", tint = Primary)
                     }
-                    TextButton(onClick = { onEditSetClick(setId) }) {
+                    TextButton(onClick = onEditSetClick) {
                         Text("Edit", color = Primary, fontWeight = FontWeight.SemiBold)
                     }
                 },
@@ -134,7 +174,7 @@ fun WordListScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Button(
-                                    onClick = { onStudyClick(setId) },
+                                    onClick = onStudyClick,
                                     modifier = Modifier.weight(1f).height(50.dp),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -158,7 +198,7 @@ fun WordListScreen(
                         item {
                             OutlinedTextField(
                                 value = searchQuery,
-                                onValueChange = { viewModel.updateSearchQuery(it) },
+                                onValueChange = onSearchQueryChange,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp),
@@ -210,7 +250,7 @@ fun WordListScreen(
 
     ExportVocabularyDialog(
         exportState = exportUiState,
-        onDismiss = { viewModel.clearExportState() }
+        onDismiss = onDismissExportDialog
     )
 }
 
@@ -285,7 +325,7 @@ private fun ExportVocabularyDialog(
 }
 
 @Composable
-fun SetHeaderCard(set: com.edu.minlish.features.library.domain.model.VocabularySet?, progress: Float) {
+fun SetHeaderCard(set: VocabularySet?, progress: Float) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -396,5 +436,48 @@ fun EmptyWordList(onAddWord: () -> Unit) {
         Button(onClick = onAddWord, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
             Text("Add your first word")
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WordListScreenPreview() {
+    val sampleSet = VocabularySet(
+        id = "set_1",
+        title = "IELTS Academic",
+        description = "Essential vocabulary for IELTS Academic preparation",
+        wordCount = 2
+    )
+    val sampleWords = listOf(
+        VocabularyWord(
+            id = "w1",
+            word = "Eloquent",
+            definitions = listOf(WordDefinition(meaningVietnamese = "Hùng hồn, có khả năng diễn đạt tốt"))
+        ),
+        VocabularyWord(
+            id = "w2",
+            word = "Meticulous",
+            definitions = listOf(WordDefinition(meaningVietnamese = "Tỉ mỉ, kỹ lưỡng"))
+        )
+    )
+    
+    MinLishTheme {
+        WordListContent(
+            uiState = WordListUiState.Success(sampleWords),
+            exportUiState = ExportUiState.Idle,
+            masteryPercentage = 0.5f,
+            wordProgresses = emptyMap(),
+            searchQuery = "",
+            filteredWords = sampleWords,
+            vocabularySet = sampleSet,
+            onBack = {},
+            onWordClick = {},
+            onAddWord = {},
+            onStudyClick = {},
+            onEditSetClick = {},
+            onExportClick = {},
+            onSearchQueryChange = {},
+            onDismissExportDialog = {}
+        )
     }
 }

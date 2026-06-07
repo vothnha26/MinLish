@@ -30,12 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edu.minlish.core.designsystem.component.MinLishButton
 import com.edu.minlish.core.designsystem.component.MinLishTextField
+import com.edu.minlish.core.designsystem.theme.MinLishTheme
 import com.edu.minlish.core.designsystem.theme.Primary
 import com.edu.minlish.features.library.presentation.viewmodel.AICreateSetViewModel
 import com.edu.minlish.features.library.presentation.viewmodel.AICreateSetUiState
@@ -52,7 +54,6 @@ fun AICreateWordSetScreen(
     val category by viewModel.category.collectAsStateWithLifecycle()
     val wordCount by viewModel.wordCount.collectAsStateWithLifecycle()
     val includeCollocations by viewModel.includeCollocations.collectAsStateWithLifecycle()
-    val scrollState = rememberScrollState()
 
     BackHandler(enabled = uiState is AICreateSetUiState.Loading) {
         // Intercept back gesture during loading to prevent cancellation/corruption
@@ -63,6 +64,38 @@ fun AICreateWordSetScreen(
             onCreateSuccess()
         }
     }
+
+    AICreateWordSetContent(
+        uiState = uiState,
+        prompt = prompt,
+        category = category,
+        wordCount = wordCount,
+        includeCollocations = includeCollocations,
+        onBack = onBack,
+        onPromptChange = { viewModel.updatePrompt(it) },
+        onCategoryChange = { viewModel.updateCategory(it) },
+        onWordCountChange = { viewModel.updateWordCount(it) },
+        onIncludeCollocationsChange = { viewModel.updateIncludeCollocations(it) },
+        onGenerate = { viewModel.generateSet() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun AICreateWordSetContent(
+    uiState: AICreateSetUiState,
+    prompt: String,
+    category: String,
+    wordCount: Int,
+    includeCollocations: Boolean,
+    onBack: () -> Unit,
+    onPromptChange: (String) -> Unit,
+    onCategoryChange: (String) -> Unit,
+    onWordCountChange: (Int) -> Unit,
+    onIncludeCollocationsChange: (Boolean) -> Unit,
+    onGenerate: () -> Unit
+) {
+    val scrollState = rememberScrollState()
 
     Box(
         modifier = Modifier
@@ -155,7 +188,7 @@ fun AICreateWordSetScreen(
                     )
                     MinLishTextField(
                         value = prompt,
-                        onValueChange = { viewModel.updatePrompt(it) },
+                        onValueChange = onPromptChange,
                         label = "Ví dụ: Các từ vựng về bảo vệ môi trường, từ giao tiếp sân bay...",
                         placeholder = "Nhập chủ đề bạn muốn AI tạo từ vựng"
                     )
@@ -178,7 +211,7 @@ fun AICreateWordSetScreen(
                             val isSelected = category == cat
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { viewModel.updateCategory(cat) },
+                                onClick = { onCategoryChange(cat) },
                                 label = { Text(cat, fontSize = 14.sp) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = FilterChipDefaults.filterChipColors(
@@ -219,7 +252,7 @@ fun AICreateWordSetScreen(
                     }
                     Slider(
                         value = wordCount.toFloat(),
-                        onValueChange = { viewModel.updateWordCount(it.toInt()) },
+                        onValueChange = { onWordCountChange(it.toInt()) },
                         valueRange = 5f..50f,
                         steps = 8,
                         colors = SliderDefaults.colors(
@@ -266,7 +299,7 @@ fun AICreateWordSetScreen(
                         }
                         Switch(
                             checked = includeCollocations,
-                            onCheckedChange = { viewModel.updateIncludeCollocations(it) },
+                            onCheckedChange = onIncludeCollocationsChange,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = Primary
@@ -290,7 +323,7 @@ fun AICreateWordSetScreen(
 
                 MinLishButton(
                     text = "Tạo bộ từ vựng bằng AI",
-                    onClick = { viewModel.generateSet() },
+                    onClick = onGenerate,
                     enabled = prompt.isNotBlank() && uiState !is AICreateSetUiState.Loading,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -339,5 +372,25 @@ fun AICreateWordSetScreen(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AICreateWordSetScreenPreview() {
+    MinLishTheme {
+        AICreateWordSetContent(
+            uiState = AICreateSetUiState.Idle,
+            prompt = "Environmental protection",
+            category = "IELTS",
+            wordCount = 10,
+            includeCollocations = true,
+            onBack = {},
+            onPromptChange = {},
+            onCategoryChange = {},
+            onWordCountChange = {},
+            onIncludeCollocationsChange = {},
+            onGenerate = {}
+        )
     }
 }

@@ -303,6 +303,55 @@ class GeminiAIService(
         }
     }
 
+    suspend fun translateAndExtractVocabulary(
+        text: String,
+        sourceLang: String,
+        targetLang: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val prompt = """
+                Bạn là một chuyên gia dịch thuật và giảng dạy tiếng Anh.
+                Hãy thực hiện các nhiệm vụ sau cho đoạn văn dưới đây:
+                Đoạn văn cần dịch: "$text"
+                Ngôn ngữ nguồn: $sourceLang
+                Ngôn ngữ đích: $targetLang
+                
+                Nhiệm vụ:
+                1. Dịch đoạn văn trên một cách trôi chảy, tự nhiên và sát nghĩa nhất sang ngôn ngữ đích.
+                2. Trích xuất ra tối đa 5 từ vựng nổi bật/quan trọng từ đoạn văn trên (ưu tiên các từ tiếng Anh quan trọng). Với mỗi từ vựng được trích xuất, hãy cung cấp đầy đủ thông tin chi tiết: phiên âm IPA, từ loại, nghĩa tiếng Việt, định nghĩa bằng tiếng Anh, ví dụ cụ thể (kèm dịch nghĩa), từ đồng nghĩa, từ trái nghĩa, collocations phổ biến và mẹo nhớ từ vựng bằng tiếng Việt.
+                
+                Yêu cầu bắt buộc: Trả về kết quả DƯỚI DẠNG JSON hợp lệ theo cấu trúc sau, KHÔNG ĐƯỢC có các thẻ markdown bao quanh:
+                {
+                  "translatedText": "Bản dịch tự nhiên của đoạn văn",
+                  "extractedWords": [
+                    {
+                      "word": "từ_tiếng_Anh",
+                      "pronunciation": "/phiên_âm_IPA/",
+                      "definitions": [
+                        {
+                          "pos": "Noun/Verb/Adjective/...",
+                          "meaningVietnamese": "nghĩa tiếng Việt chính xác",
+                          "definitionEnglish": "Định nghĩa bằng tiếng Anh rõ ràng",
+                          "exampleSentence": "Ví dụ tiếng Anh (Dịch nghĩa tiếng Việt)",
+                          "synonyms": ["đồng nghĩa 1", "đồng nghĩa 2"],
+                          "antonyms": ["trái nghĩa 1", "trái nghĩa 2"]
+                        }
+                      ],
+                      "collocations": "Cụm từ đi kèm phổ biến",
+                      "personalNote": "Ghi chú/Mẹo nhớ từ vựng bằng tiếng Việt"
+                    }
+                  ]
+                }
+            """.trimIndent()
+            
+            val response = textModel.generateContent(prompt)
+            val textResponse = response.text ?: throw Exception("Empty response from AI")
+            Result.success(textResponse.trim())
+        } catch (e: Exception) {
+            Result.failure(mapGenerativeException(e))
+        }
+    }
+
     private fun mapGenerativeException(e: Exception): Exception {
         val msg = e.message ?: ""
         val errorString = e.toString()
