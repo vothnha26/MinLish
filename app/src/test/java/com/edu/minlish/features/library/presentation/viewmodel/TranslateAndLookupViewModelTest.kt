@@ -65,24 +65,24 @@ class TranslateAndLookupViewModelTest {
         advanceUntilIdle()
 
         // THEN: VM userSets should load the correct sets
-        assertEquals(1, viewModel.userSets.size)
-        assertEquals("IELTS Vocabulary", viewModel.userSets[0].title)
+        assertEquals(1, viewModel.userSets.value.size)
+        assertEquals("IELTS Vocabulary", viewModel.userSets.value[0].title)
     }
 
     @Test
     fun testLookupWord_Success() = runTest(testDispatcher) {
         // GIVEN: User inputs word to search
-        viewModel.inputText = "outstanding"
+        viewModel.updateInputText("outstanding")
 
         // WHEN: Calling lookupWord
         viewModel.lookupWord()
         
         // THEN: UI state is Success and lookupResult is populated
-        assertTrue(viewModel.uiState is TranslateAndLookupUiState.Success)
-        assertNotNull(viewModel.lookupResult)
-        assertEquals("outstanding", viewModel.lookupResult?.word)
-        assertEquals("/outstanding/", viewModel.lookupResult?.pronunciation)
-        assertEquals("Nghĩa giả lập", viewModel.lookupResult?.definitions?.firstOrNull()?.meaningVietnamese)
+        assertTrue(viewModel.uiState.value is TranslateAndLookupUiState.Success)
+        assertNotNull(viewModel.lookupResult.value)
+        assertEquals("outstanding", viewModel.lookupResult.value?.word)
+        assertEquals("/outstanding/", viewModel.lookupResult.value?.pronunciation)
+        assertEquals("Nghĩa giả lập", viewModel.lookupResult.value?.definitions?.firstOrNull()?.meaningVietnamese)
     }
 
     @Test
@@ -109,7 +109,7 @@ class TranslateAndLookupViewModelTest {
         assertEquals(1, fakeRepository.words.size)
         assertEquals("magnificent", fakeRepository.words[0].word)
         assertEquals("set_123", fakeRepository.words[0].vocabularySetId)
-        assertTrue(viewModel.wordSavedStatus[word.word] == true)
+        assertTrue(viewModel.wordSavedStatus.value[word.word] == true)
     }
 
     @Test
@@ -141,29 +141,25 @@ class TranslateAndLookupViewModelTest {
         assertEquals(1, fakeRepository.words.size)
         assertEquals("remarkable", fakeRepository.words[0].word)
         assertEquals(createdDefaultSet?.id, fakeRepository.words[0].vocabularySetId)
-        assertTrue(viewModel.wordSavedStatus[word.word] == true)
+        assertTrue(viewModel.wordSavedStatus.value[word.word] == true)
     }
 
     @Test
     fun testSwapLanguages_SwapsSuccessfully() = runTest(testDispatcher) {
-        // GIVEN: Set languages and input texts
-        viewModel.sourceLang = "Tiếng Anh"
-        viewModel.sourceLangCode = "en"
-        viewModel.targetLang = "Tiếng Việt"
-        viewModel.targetLangCode = "vi"
-        viewModel.inputText = "Hello"
-        viewModel.translatedText = "Xin chào"
+        // GIVEN: Set input texts
+        viewModel.updateInputText("Hello")
+        viewModel.updateTranslatedText("Xin chào")
 
         // WHEN: Swapping
         viewModel.swapLanguages()
 
         // THEN: Languages, codes, and texts should be swapped
-        assertEquals("Tiếng Việt", viewModel.sourceLang)
-        assertEquals("vi", viewModel.sourceLangCode)
-        assertEquals("Tiếng Anh", viewModel.targetLang)
-        assertEquals("en", viewModel.targetLangCode)
-        assertEquals("Xin chào", viewModel.inputText)
-        assertEquals("Hello", viewModel.translatedText)
+        assertEquals("Tiếng Việt", viewModel.sourceLang.value)
+        assertEquals("vi", viewModel.sourceLangCode.value)
+        assertEquals("Tiếng Anh", viewModel.targetLang.value)
+        assertEquals("en", viewModel.targetLangCode.value)
+        assertEquals("Xin chào", viewModel.inputText.value)
+        assertEquals("Hello", viewModel.translatedText.value)
     }
 
     @Test
@@ -181,26 +177,26 @@ class TranslateAndLookupViewModelTest {
         viewModel.addWordToHistory("grapes") // Exceeds 5 items (hello will be dropped if it falls to index 5+)
 
         // THEN: Limit should be 5, no duplicates, most recent at index 0
-        assertEquals(5, viewModel.recentHistory.size)
-        assertEquals("grapes", viewModel.recentHistory[0])
-        assertEquals("orange", viewModel.recentHistory[1])
-        assertEquals("banana", viewModel.recentHistory[2])
-        assertEquals("apple", viewModel.recentHistory[3])
-        assertEquals("hello", viewModel.recentHistory[4]) // "world" got pushed out
-        assertFalse(viewModel.recentHistory.contains("world"))
+        assertEquals(5, viewModel.recentHistory.value.size)
+        assertEquals("grapes", viewModel.recentHistory.value[0])
+        assertEquals("orange", viewModel.recentHistory.value[1])
+        assertEquals("banana", viewModel.recentHistory.value[2])
+        assertEquals("apple", viewModel.recentHistory.value[3])
+        assertEquals("hello", viewModel.recentHistory.value[4]) // "world" got pushed out
+        assertFalse(viewModel.recentHistory.value.contains("world"))
     }
 
     @Test
     fun testClearRecentHistory_ClearsSuccessfully() = runTest(testDispatcher) {
         // GIVEN: History with items
         viewModel.addWordToHistory("hello")
-        assertEquals(1, viewModel.recentHistory.size)
+        assertEquals(1, viewModel.recentHistory.value.size)
 
         // WHEN: Clearing
         viewModel.clearRecentHistory()
 
         // THEN: History is empty
-        assertTrue(viewModel.recentHistory.isEmpty())
+        assertTrue(viewModel.recentHistory.value.isEmpty())
     }
 }
 

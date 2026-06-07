@@ -21,6 +21,9 @@ class CsvVocabularyImportParser : VocabularyImportParser {
     }
 
     private fun parseCsv(text: String): List<List<String>> {
+        val firstLine = text.lineSequence().firstOrNull() ?: ""
+        val delimiter = if (firstLine.count { it == ';' } > firstLine.count { it == ',' }) ';' else ','
+
         val rows = mutableListOf<MutableList<String>>()
         var row = mutableListOf<String>()
         val cell = StringBuilder()
@@ -35,7 +38,7 @@ class CsvVocabularyImportParser : VocabularyImportParser {
                     index++
                 }
                 char == '"' -> inQuotes = !inQuotes
-                char == ',' && !inQuotes -> {
+                char == delimiter && !inQuotes -> {
                     row.add(cell.toString())
                     cell.clear()
                 }

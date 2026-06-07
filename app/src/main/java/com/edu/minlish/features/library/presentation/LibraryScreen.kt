@@ -114,7 +114,7 @@ fun LibraryScreen(
         },
         onImportClick = {
             importLauncher.launch(
-                arrayOf("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                arrayOf("*/*")
             )
         },
         onQueryChange = { viewModel.updateSearchQuery(it) },

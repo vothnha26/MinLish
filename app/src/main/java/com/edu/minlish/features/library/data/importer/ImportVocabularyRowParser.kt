@@ -18,10 +18,12 @@ internal object ImportVocabularyRowParser {
         "ipa" to "pronunciation",
         "phonetic" to "pronunciation",
         "meaningvietnamese" to "meaningVietnamese",
+        "meaningvn" to "meaningVietnamese",
         "meaning" to "meaningVietnamese",
         "vietnamese" to "meaningVietnamese",
         "translation" to "meaningVietnamese",
         "definitionenglish" to "definitionEnglish",
+        "definitionen" to "definitionEnglish",
         "definition" to "definitionEnglish",
         "englishdefinition" to "definitionEnglish",
         "examplesentence" to "exampleSentence",
@@ -45,7 +47,7 @@ internal object ImportVocabularyRowParser {
             return ImportVocabularyPreview(
                 fileName = fileName,
                 validRows = emptyList(),
-                errors = listOf(ImportVocabularyError(1, "File is empty")),
+                errors = listOf(ImportVocabularyError(1, "File import không có dữ liệu")),
                 totalRows = 0
             )
         }
@@ -57,10 +59,10 @@ internal object ImportVocabularyRowParser {
         val seenWords = mutableSetOf<String>()
 
         if (!headerIndex.containsKey("word")) {
-            errors.add(ImportVocabularyError(1, "Missing required column: word"))
+            errors.add(ImportVocabularyError(1, "Thiếu cột bắt buộc: Word (Từ vựng)"))
         }
         if (!headerIndex.containsKey("meaningVietnamese")) {
-            errors.add(ImportVocabularyError(1, "Missing required column: meaningVietnamese"))
+            errors.add(ImportVocabularyError(1, "Thiếu cột bắt buộc: Meaning (Nghĩa tiếng Việt)"))
         }
         if (errors.isNotEmpty()) {
             return ImportVocabularyPreview(
@@ -76,7 +78,7 @@ internal object ImportVocabularyRowParser {
             if (record.all { it.isBlank() }) return@forEachIndexed
 
             if (validRows.size >= MAX_IMPORT_ROWS) {
-                errors.add(ImportVocabularyError(rowNumber, "Import limit is $MAX_IMPORT_ROWS words per file"))
+                errors.add(ImportVocabularyError(rowNumber, "Giới hạn import tối đa $MAX_IMPORT_ROWS từ mỗi file"))
                 return@forEachIndexed
             }
 
@@ -85,26 +87,26 @@ internal object ImportVocabularyRowParser {
 
             when {
                 word.isBlank() -> {
-                    errors.add(ImportVocabularyError(rowNumber, "Missing word"))
+                    errors.add(ImportVocabularyError(rowNumber, "Thiếu từ tiếng Anh"))
                     return@forEachIndexed
                 }
                 meaningVietnamese.isBlank() -> {
-                    errors.add(ImportVocabularyError(rowNumber, "Missing meaningVietnamese"))
+                    errors.add(ImportVocabularyError(rowNumber, "Thiếu nghĩa tiếng Việt"))
                     return@forEachIndexed
                 }
                 word.length > 100 -> {
-                    errors.add(ImportVocabularyError(rowNumber, "Word is longer than 100 characters"))
+                    errors.add(ImportVocabularyError(rowNumber, "Từ tiếng Anh không được dài quá 100 ký tự"))
                     return@forEachIndexed
                 }
                 meaningVietnamese.length > 500 -> {
-                    errors.add(ImportVocabularyError(rowNumber, "meaningVietnamese is longer than 500 characters"))
+                    errors.add(ImportVocabularyError(rowNumber, "Nghĩa tiếng Việt không được dài quá 500 ký tự"))
                     return@forEachIndexed
                 }
             }
 
             val wordKey = word.lowercase(Locale.US)
             if (!seenWords.add(wordKey)) {
-                errors.add(ImportVocabularyError(rowNumber, "Duplicate word in file: $word"))
+                errors.add(ImportVocabularyError(rowNumber, "Từ bị trùng lặp trong file: $word"))
                 return@forEachIndexed
             }
 
@@ -144,9 +146,7 @@ internal object ImportVocabularyRowParser {
         return value
             .trim()
             .removePrefix("\uFEFF")
-            .replace("_", "")
-            .replace(" ", "")
-            .replace("-", "")
+            .filter { it.isLetterOrDigit() }
             .lowercase(Locale.US)
     }
 

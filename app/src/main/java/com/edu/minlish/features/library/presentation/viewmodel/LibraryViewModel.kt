@@ -212,7 +212,14 @@ class LibraryViewModel(
             importManager.parseFromUri(context, uri)
                 .onSuccess { preview ->
                     if (preview.validRows.isEmpty()) {
-                        _importUiState.value = ImportUiState.Error("No valid vocabulary rows found")
+                        val errorMessage = preview.errors.firstOrNull()?.let { error ->
+                            if (error.rowNumber > 1) {
+                                "Dòng ${error.rowNumber}: ${error.message}"
+                            } else {
+                                error.message
+                            }
+                        } ?: "Không tìm thấy từ vựng hợp lệ nào trong file"
+                        _importUiState.value = ImportUiState.Error(errorMessage)
                         return@onSuccess
                     }
                     _importSetTitle.value = preview.fileName.substringBeforeLast('.')
